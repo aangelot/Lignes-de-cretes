@@ -130,6 +130,3 @@ Envoyez une issue ou une pull request !
 
 Les lignes de crêtes sont les chemins visibles sur les sommets. Elles symbolisent l’altitude, la progression et la clarté d’orientation. Un nom qui reflète notre ambition : naviguer entre nature, infrastructures et liberté.
 
----
-
-Let me know if you'd like me to commit this to a GitHub repo or adapt it to another format (like `index.html` for a landing page).
