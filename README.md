@@ -1,6 +1,6 @@
 # Lignes de Crêtes
 
-[🇫🇷 Lire en français](##-🇫🇷-Français-–-Lignes-de-Crêtes)
+[🇫🇷 Lire en français](#-français--lignes-de-crêtes)
 
 ---
 
