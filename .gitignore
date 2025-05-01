@@ -6,6 +6,9 @@ __pycache__/
 # C extensions
 *.so
 
+# Editor
+.vscode/
+
 # Distribution / packaging
 .Python
 build/
@@ -50,6 +53,8 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+cache
+migrations/
 
 # Translations
 *.mo
@@ -172,3 +177,7 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+#data 
+data/*
+!data/.gitkeep
