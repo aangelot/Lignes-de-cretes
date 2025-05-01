@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lignes de Crêtes</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Leaflet CSS and JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    {% load static %}
+    <link rel="stylesheet" type="text/css" href="{% static 'hello/site.css' %}"/>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+</head>
+<body>
+<div class="container">
+    <div class="sidebar">
+        <h2>Hike Planner</h2>
+        <form method="POST">
+            {% csrf_token %}
+            <label for="start">Start coordinates (lat,lon):</label>
+            <input type="text" name="start" id="start" placeholder="45.3838,5.8335" required>
+
+            <label for="end">End coordinates (lat,lon):</label>
+            <input type="text" name="end" id="end" placeholder="45.3075,5.7474" required>
+
+            <button type="submit">Compute Path</button>
+        </form>
+    </div>
+    <div class="map-container">
+        <div id="map"></div>
+    </div>
+</div>
+
+{% if path %}
+    <div id="path-data" data-coords='{{ path|escapejs }}'></div>
+{% endif %}
+
+<script>
+    // Map initialisation
+    const map = L.map('map').setView([45.36, 5.79], 12);
+
+    // Basemap layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Data from path
+    const pathElement = document.getElementById('path-data');
+    if (pathElement) {
+        const pathCoords = JSON.parse(pathElement.dataset.coords);
+        const latlngs = pathCoords.map(coord => [coord[0], coord[1]]);
+        const polyline = L.polyline(latlngs, {color: 'blue'}).addTo(map);
+        map.fitBounds(polyline.getBounds());
+
+        // Markers
+        L.marker(latlngs[0]).addTo(map).bindPopup('Start').openPopup();
+        L.marker(latlngs[latlngs.length - 1]).addTo(map).bindPopup('End');
+    }
+</script>
+
+</body>
+</html>
