@@ -130,3 +130,12 @@ Envoyez une issue ou une pull request !
 
 Les lignes de crêtes sont les chemins visibles sur les sommets. Elles symbolisent l’altitude, la progression et la clarté d’orientation. Un nom qui reflète notre ambition : naviguer entre nature, infrastructures et liberté.
 
+# To reproduce 
+
+## Step 1 : get and score all public transport stops 
+First try within the Chartreuse park only 
+Download the GeoJSON of the park here : https://data-interne.ademe.fr/datasets/pnr 
+And store it in data/input/pnr.geojson
+
+Then download all public stop in France here : https://transport.data.gouv.fr/datasets/arrets-de-transport-en-france 
+And store the csv file in data/input/stops_france.csv
