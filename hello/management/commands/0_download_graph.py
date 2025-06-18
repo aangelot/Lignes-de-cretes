@@ -8,4 +8,4 @@ class Command(BaseCommand):
         self.stdout.write("Downloading pedestrian network for Parc naturel régional de Chartreuse...")
         G = ox.graph_from_place("Parc naturel régional de Chartreuse, France", network_type="walk")
         ox.save_graphml(G, filepath="data/chartreuse.graphml")
-        self.stdout.write(self.style.SUCCESS("Graph saved to data/chartreuse.graphml"))
+        self.stdout.write(self.style.SUCCESS("Graph saved to data/input/chartreuse.graphml"))
