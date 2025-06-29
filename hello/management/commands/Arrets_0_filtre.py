@@ -43,5 +43,5 @@ gdf_unique = gdf_filtered.sort_values("cluster").drop_duplicates("cluster", keep
 gdf_unique = gdf_unique.to_crs(epsg=4326)
 
 # 11. Exporter le résultat en GeoJSON
-gdf_unique.to_file("data/intermediate/1_chartreuse_arrets.geojson", driver="GeoJSON")
+gdf_unique.to_file("data/intermediate/chartreuse_arrets.geojson", driver="GeoJSON")
 

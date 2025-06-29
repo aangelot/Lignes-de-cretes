@@ -3,7 +3,7 @@ from shapely.geometry import Point
 from shapely.ops import nearest_points
 
 # Charger les 10 premiers arrêts
-gdf_stops = gpd.read_file("data/intermediate/2_chartreuse_scores.geojson")
+gdf_stops = gpd.read_file("data/intermediate/chartreuse_scores.geojson")
 
 # Charger uniquement le parc de la Chartreuse
 gdf_pnr = gpd.read_file("data/input/PNR.geojson")
@@ -32,5 +32,5 @@ gdf_stops["distance_to_pnr_border"] = gdf_stops.geometry.apply(
 )
 
 # Sauvegarde
-gdf_stops.to_file("data/intermediate/2_chartreuse_scores.geojson", driver="GeoJSON")
-print("Fichier exporté : data/intermediate/2_chartreuse_scores.geojson")
+gdf_stops.to_file("data/output/chartreuse_scores_final.geojson", driver="GeoJSON")
+print("Fichier exporté : data/output/chartreuse_scores_final.geojson")

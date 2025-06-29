@@ -3,7 +3,7 @@ import requests
 import time
 
 # Charger le fichier GeoJSON
-gdf = gpd.read_file("data/intermediate/2_chartreuse_scores.geojson")
+gdf = gpd.read_file("data/intermediate/chartreuse_scores.geojson")
 
 # Fonction pour récupérer l'altitude via l’API Open-Elevation
 def get_elevation(lat, lon):
@@ -27,6 +27,6 @@ for idx, row in gdf.iterrows():
 
 # Ajouter la colonne et enregistrer
 gdf["elevation"] = elevations
-gdf.to_file("data/intermediate/2_chartreuse_scores.geojson", driver="GeoJSON")
+gdf.to_file("data/intermediate/chartreuse_scores.geojson", driver="GeoJSON")
 
 print("✅ Altitudes ajoutées au fichier.")
