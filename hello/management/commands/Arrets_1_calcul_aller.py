@@ -4,25 +4,26 @@ from dotenv import load_dotenv
 import os
 from datetime import datetime, timedelta
 import time
+from shapely.geometry import Point
 
 # Charger la clé API depuis le fichier .env
 load_dotenv()
 API_KEY = os.getenv("GOOGLE_API_KEY")
 
-# Coordonnées de Lyon Part-Dieu
-destination = {"latitude": 45.7601, "longitude": 4.8599}
+# Coords de Lyon Part-Dieu
+origin = {"latitude": 45.7601, "longitude": 4.8599}
 
-# Charger les arrêts depuis le fichier existant
-gdf = gpd.read_file("data/intermediate/2_chartreuse_scores.geojson")
+# Charger les POI depuis le fichier GeoJSON
+gdf = gpd.read_file("data/intermediate/chartreuse_arrets.geojson")
 
-# Heure de départ : dimanche prochain à 14h (UTC)
+# Heure de départ : samedi prochain à 4h, en UTC (nécessaire pour l’API)
 now = datetime.now()
-days_ahead = (6 - now.weekday()) % 7  # 6 = dimanche
-sunday = now + timedelta(days=days_ahead)
-departure_time = datetime.combine(sunday.date(), datetime.strptime("14:00", "%H:%M").time())
+days_ahead = (5 - now.weekday()) % 7  # 5 = samedi
+saturday = now + timedelta(days=days_ahead)
+departure_time = datetime.combine(saturday.date(), datetime.strptime("04:00", "%H:%M").time())
 departure_time_utc = departure_time.astimezone().isoformat()
 
-# Fonction pour interroger l’API Google Directions
+# Fonction pour appeler l’API Google Directions
 def get_transit_duration(origin, destination):
     url = "https://routes.googleapis.com/directions/v2:computeRoutes"
     headers = {
@@ -43,7 +44,7 @@ def get_transit_duration(origin, destination):
     if response.status_code == 200:
         try:
             duration_str = response.json()["routes"][0]["duration"]
-            # Conversion vers minutes
+            # Convertir le format "1234s" ou "PT1H12M" vers minutes
             if "s" in duration_str:
                 return int(int(duration_str.replace("s", "")) / 60)
             elif duration_str.startswith("PT"):
@@ -63,20 +64,22 @@ def get_transit_duration(origin, destination):
         print(f"Erreur API {response.status_code}: {response.text}")
         return None
 
-# Calculer la durée retour
-durations_back = []
+# Calculer la durée pour chaque POI
+results = []
 for idx, row in gdf.iterrows():
-    lat, lon = row.geometry.y, row.geometry.x
-    origin = {"latitude": lat, "longitude": lon}
-    print(f"⏳ Retour depuis ({lat}, {lon})...")
-    duration = get_transit_duration(origin, destination)
-    durations_back.append(duration)
-    time.sleep(0.1)  # limiter les requêtes
+    lon, lat = row.geometry.x, row.geometry.y
+    destination = {"latitude": lat, "longitude": lon}
+    print(f"Calcul du trajet vers ({lat}, {lon})...")
+    duration_min = get_transit_duration(origin, destination)
+    results.append({
+        "duration_min_go": duration_min,
+        "geometry": Point(lon, lat)
+    })
+    time.sleep(0.1)  # pour éviter d’être bloqué par l’API
 
-# Ajouter la colonne et filtrer
-gdf["duration_min_back"] = durations_back
-gdf = gdf[gdf["duration_min_back"].notnull()]
+gdf = gdf[gdf['duration_min_go'].notnull()]
+output_gdf = gpd.GeoDataFrame(results, crs="EPSG:4326")
+output_gdf.to_file("data/intermediate/2_chartreuse_scores"
+".geojson", driver="GeoJSON")
 
-# Sauvegarder dans le même fichier
-gdf.to_file("data/intermediate/2_chartreuse_scores.geojson", driver="GeoJSON")
-print("✅ Fichier mis à jour : data/intermediate/2_chartreuse_scores.geojson")
+print("✅ Fichier exporté : data/intermediate/chartreuse_scores.geojson")
