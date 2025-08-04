@@ -30,6 +30,8 @@ def signed_distance_to_border(point, polygon, border):
 gdf_stops["distance_to_pnr_border"] = gdf_stops.geometry.apply(
     lambda point: signed_distance_to_border(point, chartreuse_union, chartreuse_border)
 )
+gdf_chartreuse = gdf_chartreuse.to_crs(epsg=4326)  # Reprojection en WGS 84 pour l'export
+
 
 # Sauvegarde
 gdf_stops.to_file("data/output/chartreuse_scores_final.geojson", driver="GeoJSON")

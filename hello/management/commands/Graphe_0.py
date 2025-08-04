@@ -44,6 +44,6 @@ gdf_edges["randonnabilite_score"] = gdf_edges.apply(score_randonnabilite, axis=1
 gdf_simplified = gdf_edges[["geometry", "randonnabilite_score"]]
 
 # 7. Sauvegarde du fichier
-output_path = "data/output/chartreuse_hiking_paths.geojson"
+output_path = "data/intermediate/chartreuse_hiking_paths.geojson"
 gdf_simplified.to_file(output_path, driver="GeoJSON")
 print(f"✔️ Données sauvegardées dans {output_path}")
