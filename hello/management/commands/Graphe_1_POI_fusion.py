@@ -1,6 +1,8 @@
 import geopandas as gpd
-from shapely.geometry import Point
+from shapely.geometry import Point, LineString
 import os
+from sklearn.preprocessing import MinMaxScaler
+from pyproj import Geod
 
 # Fichiers
 POI_FILE = "data/intermediate/poi_scores.geojson"
@@ -61,6 +63,12 @@ for _, poi in gdf_poi.iterrows():
 # Construire score_total
 gdf_paths["randonnabilite_score"] = gdf_paths["randonnabilite_score"].fillna(0.0)
 gdf_paths["score_total"] = gdf_paths["randonnabilite_score"] + gdf_paths["poi_score_total"]
+scaler = MinMaxScaler()
+gdf_paths["score_total_normalized"] = scaler.fit_transform(gdf_paths[["score_total"]])
+
+# Calcul de la longueur en mètres pour chaque LineString
+gdf_paths["distance_meters"] = gdf_paths.geometry.length
+gdf_paths["distance_meters_normalized"] = scaler.fit_transform(gdf_paths[["distance_meters"]])
 
 # Supprimer les anciens champs
 gdf_paths = gdf_paths.drop(columns=["randonnabilite_score"])
