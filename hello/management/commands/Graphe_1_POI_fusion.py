@@ -33,7 +33,7 @@ gdf_paths["poi_score_total"] = 0.0
 # Index spatial pour les chemins (facultatif mais accélère l'intersection)
 paths_sindex = gdf_paths.sindex
 
-# Pour chaque POI, buffer de 20 m et ajouter son score à tous les segments intersectés
+# Pour chaque POI, buffer de 100 m et ajouter son score à tous les segments intersectés
 for _, poi in gdf_poi.iterrows():
     poi_point = poi.geometry
     if poi_point is None:
@@ -47,7 +47,7 @@ for _, poi in gdf_poi.iterrows():
     if str(poi.get("type", "")).lower() == "summit":
         base_score *= 5
 
-    buffer = poi_point.buffer(20)  # 20 mètres
+    buffer = poi_point.buffer(100)  # 100 mètres
 
     # Recherche rapide d'éventuels candidats via spatial index
     possible_idxs = list(paths_sindex.intersection(buffer.bounds))
