@@ -1,7 +1,7 @@
 from django.urls import path
-from hello import views
+from . import views
 
 urlpatterns = [
-    path("", views.index, name="index"),
-    path("hello/<name>", views.hello_there, name="hello_there"),
-    ]
+    path('', views.index, name='index'),                  # Page d'accueil
+    path('get_route/', views.get_route, name='get_route'),  # API GeoJSON
+]

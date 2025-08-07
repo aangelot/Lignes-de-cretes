@@ -16,15 +16,28 @@
 <div class="container">
     <div class="sidebar">
         <h2>Hike Planner</h2>
-        <form method="POST">
-            {% csrf_token %}
-            <label for="start">Start coordinates (lat,lon):</label>
-            <input type="text" name="start" id="start" placeholder="45.3838,5.8335" required>
+        <form id="trek-form">
+            <label for="city">Ville de départ :</label>
+            <select name="city" id="city">
+                <option value="lyon" selected>Lyon</option>
+                <!-- D'autres villes à ajouter plus tard -->
+            </select>
 
-            <label for="end">End coordinates (lat,lon):</label>
-            <input type="text" name="end" id="end" placeholder="45.3075,5.7474" required>
+            <label for="massif">Massif :</label>
+            <select name="massif" id="massif">
+                <option value="chartreuse" selected>Chartreuse</option>
+                <!-- D'autres massifs à ajouter plus tard -->
+            </select>
 
-            <button type="submit">Compute Path</button>
+            <label for="level">Niveau :</label>
+            <select name="level" id="level">
+                <option value="debutant">&lt; 10 km (Débutant)</option>
+                <option value="intermediaire">10–20 km (Intermédiaire)</option>
+                <option value="avance">20–30 km (Avancé)</option>
+                <option value="expert">&gt; 30 km (Expert)</option>
+            </select>
+
+            <button type="submit">Trouver mon trek</button>
         </form>
     </div>
     <div class="map-container">
@@ -37,27 +50,63 @@
 {% endif %}
 
 <script>
-    // Map initialisation
     const map = L.map('map').setView([45.36, 5.79], 12);
 
-    // Basemap layer
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
 
-    // Data from path
-    const pathElement = document.getElementById('path-data');
-    if (pathElement) {
-        const pathCoords = JSON.parse(pathElement.dataset.coords);
-        const latlngs = pathCoords.map(coord => [coord[0], coord[1]]);
-        const polyline = L.polyline(latlngs, {color: 'blue'}).addTo(map);
-        map.fitBounds(polyline.getBounds());
+    let currentLayer = null;
 
-        // Markers
-        L.marker(latlngs[0]).addTo(map).bindPopup('Start').openPopup();
-        L.marker(latlngs[latlngs.length - 1]).addTo(map).bindPopup('End');
+    document.getElementById('trek-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        const city = document.getElementById('city').value;
+        const massif = document.getElementById('massif').value;
+        const level = document.getElementById('level').value;
+
+        fetch('/get_route/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({
+                city: city,
+                massif: massif,
+                level: level
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Erreur lors de la récupération du tracé');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (currentLayer) {
+                map.removeLayer(currentLayer);
+            }
+
+            currentLayer = L.geoJSON(data, {
+                style: { color: 'blue' }
+            }).addTo(map);
+
+            map.fitBounds(currentLayer.getBounds());
+        })
+        .catch(error => {
+            alert(error.message);
+            console.error(error);
+        });
+    });
+
+    // Fonction pour récupérer le token CSRF depuis le cookie
+    function getCSRFToken() {
+        const cookie = document.cookie.split(';').find(c => c.trim().startsWith('csrftoken='));
+        return cookie ? cookie.split('=')[1] : '';
     }
 </script>
+
 
 </body>
 </html>
