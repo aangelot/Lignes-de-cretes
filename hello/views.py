@@ -11,9 +11,17 @@ def get_route(request):
             city = request.GET.get("city", "Lyon")
             massif = request.GET.get("massif", "Chartreuse")
             level = request.GET.get("level", "debutant")
+            randomness_str = request.GET.get("randomness", "0.3")
 
-            # Appel direct à la logique métier
-            geojson_data = compute_best_route(city=city, massif=massif, level=level)
+            try:
+                randomness = float(randomness_str)
+                if not (0 <= randomness <= 1):
+                    randomness = 0.3
+            except ValueError:
+                randomness = 0.3
+
+            # Appel direct à la logique métier avec randomness
+            geojson_data = compute_best_route(city=city, massif=massif, level=level, randomness=randomness)
 
             # Sauvegarde facultative
             save_geojson(geojson_data)
