@@ -16,21 +16,21 @@
 <div class="container">
     <div class="sidebar">
         <h2>Hike Planner</h2>
-        <form id="trek-form">
+        <form id="trek-form" method="get">
             <label for="city">Ville de départ :</label>
-            <select name="city" id="city">
+            <select id="city">
                 <option value="lyon" selected>Lyon</option>
                 <!-- D'autres villes à ajouter plus tard -->
             </select>
 
             <label for="massif">Massif :</label>
-            <select name="massif" id="massif">
+            <select id="massif">
                 <option value="chartreuse" selected>Chartreuse</option>
                 <!-- D'autres massifs à ajouter plus tard -->
             </select>
 
             <label for="level">Niveau :</label>
-            <select name="level" id="level">
+            <select id="level">
                 <option value="debutant">&lt; 10 km (Débutant)</option>
                 <option value="intermediaire">10–20 km (Intermédiaire)</option>
                 <option value="avance">20–30 km (Avancé)</option>
@@ -39,6 +39,7 @@
 
             <button type="submit">Trouver mon trek</button>
         </form>
+
     </div>
     <div class="map-container">
         <div id="map"></div>
@@ -65,47 +66,34 @@
         const massif = document.getElementById('massif').value;
         const level = document.getElementById('level').value;
 
-        fetch('/get_route/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCSRFToken()
-            },
-            body: JSON.stringify({
-                city: city,
-                massif: massif,
-                level: level
+        // Construction de l'URL GET avec paramètres
+        const url = `/get_route/?city=${encodeURIComponent(city)}&massif=${encodeURIComponent(massif)}&level=${encodeURIComponent(level)}`;
+
+        fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Erreur lors de la récupération du tracé');
+                }
+                return response.json();
             })
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Erreur lors de la récupération du tracé');
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (currentLayer) {
-                map.removeLayer(currentLayer);
-            }
+            .then(data => {
+                if (currentLayer) {
+                    map.removeLayer(currentLayer);
+                }
 
-            currentLayer = L.geoJSON(data, {
-                style: { color: 'blue' }
-            }).addTo(map);
+                currentLayer = L.geoJSON(data, {
+                    style: { color: 'blue' }
+                }).addTo(map);
 
-            map.fitBounds(currentLayer.getBounds());
-        })
-        .catch(error => {
-            alert(error.message);
-            console.error(error);
-        });
+                map.fitBounds(currentLayer.getBounds());
+            })
+            .catch(error => {
+                alert(error.message);
+                console.error(error);
+            });
     });
-
-    // Fonction pour récupérer le token CSRF depuis le cookie
-    function getCSRFToken() {
-        const cookie = document.cookie.split(';').find(c => c.trim().startsWith('csrftoken='));
-        return cookie ? cookie.split('=')[1] : '';
-    }
 </script>
+
 
 
 </body>
