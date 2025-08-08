@@ -5,8 +5,9 @@ from scipy.spatial.distance import euclidean
 import pickle
 import os
 import time
+import numpy as np
 
-def compute_best_route(level='intermediaire', city='Lyon', massif='Chartreuse'):
+def compute_best_route(level='intermediaire', city='Lyon', massif='Chartreuse', randomness=0.3):
     """
     Calcule la meilleure route optimisée selon le niveau,
     et retourne un dict GeoJSON avec UNE seule Feature, la meilleure.
@@ -58,11 +59,35 @@ def compute_best_route(level='intermediaire', city='Lyon', massif='Chartreuse'):
         stop["coord"] = tuple(stop["node"])
     t_score_end = time.perf_counter()
     print(f"[compute_best_route] Calcul des scores : {t_score_end - t_score_start:.3f} sec")
+    
+    # Tri top départs / arrivées avec aléatoire
 
-    # Tri top départs / arrivées
+    def normalize_scores(items, score_key):
+        scores = np.array([item[1][score_key] for item in items])
+        min_s, max_s = scores.min(), scores.max()
+        if max_s - min_s == 0:
+            return np.ones_like(scores)
+        return (scores - min_s) / (max_s - min_s)
+
+    def select_top_with_randomness(stop_nodes, score_key, top_n=10, randomness=0.3):
+        items = list(stop_nodes.items())
+        normalized_scores = normalize_scores(items, score_key)
+        
+        # Calcul du score mixte (pondération score + aléatoire)
+        mixed_scores = (1 - randomness) * normalized_scores + randomness * np.random.rand(len(items))
+        
+        # Tri selon ce score mixte décroissant
+        sorted_items = [item for _, item in sorted(zip(mixed_scores, items), key=lambda x: x[0], reverse=True)]
+        
+        # Prendre les top_n
+        selected = sorted_items[:top_n]
+        
+        return selected
+
     t_sort_start = time.perf_counter()
-    top_depart = sorted(stop_nodes.items(), key=lambda x: x[1]["depart_score"], reverse=True)[:10]
-    top_arrival = sorted(stop_nodes.items(), key=lambda x: x[1]["arrival_score"], reverse=True)[:10]
+    top_depart = select_top_with_randomness(stop_nodes, "depart_score", top_n=10, randomness=randomness)
+    top_arrival = select_top_with_randomness(stop_nodes, "arrival_score", top_n=10, randomness=randomness)
+
     t_sort_end = time.perf_counter()
     print(f"[compute_best_route] Tri top départs/arrivées : {t_sort_end - t_sort_start:.3f} sec")
 

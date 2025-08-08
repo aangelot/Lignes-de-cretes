@@ -8,15 +8,21 @@ class Command(BaseCommand):
         parser.add_argument('--city', type=str, default='Lyon')
         parser.add_argument('--massif', type=str, default='Chartreuse')
         parser.add_argument('--level', type=str, choices=['debutant', 'intermediaire', 'avance', 'expert'], default='debutant')
+        parser.add_argument('--randomness', type=float, default=0.3, help="Valeur entre 0 et 1 pour l'aléatoire dans la sélection des points")
 
     def handle(self, *args, **options):
         city = options['city']
         massif = options['massif']
         level = options['level']
+        randomness = options['randomness']
 
-        self.stdout.write(self.style.SUCCESS(f"Calcul du meilleur chemin pour city={city}, massif={massif}, niveau={level}"))
+        if not (0 <= randomness <= 1):
+            self.stdout.write(self.style.ERROR("L'argument --randomness doit être compris entre 0 et 1"))
+            return
 
-        geojson = compute_best_route(level=level, city=city, massif=massif)
+        self.stdout.write(self.style.SUCCESS(f"Calcul du meilleur chemin pour city={city}, massif={massif}, niveau={level}, randomness={randomness}"))
+
+        geojson = compute_best_route(level=level, city=city, massif=massif, randomness=randomness)
         save_geojson(geojson)
 
         self.stdout.write(self.style.SUCCESS("✅ Itinéraire optimisé généré avec succès"))
