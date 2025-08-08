@@ -1,21 +1,16 @@
 from django.shortcuts import render
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-import json
-
 from hello.services.trouver_chemin import compute_best_route, save_geojson
 
 def index(request):
     return render(request, "hello/index.html")
 
-@csrf_exempt
 def get_route(request):
-    if request.method == "POST":
+    if request.method == "GET":
         try:
-            data = json.loads(request.body)
-            city = data.get("city", "Lyon")
-            massif = data.get("massif", "Chartreuse")
-            level = data.get("level", "debutant")
+            city = request.GET.get("city", "Lyon")
+            massif = request.GET.get("massif", "Chartreuse")
+            level = request.GET.get("level", "debutant")
 
             # Appel direct à la logique métier
             geojson_data = compute_best_route(city=city, massif=massif, level=level)
