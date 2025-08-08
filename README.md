@@ -1,74 +1,5 @@
 # Lignes de Crêtes
 
-[🇫🇷 Lire en français](#-français--lignes-de-crêtes)
-
----
-
-## 🇬🇧 English – Lignes de Crêtes
-
-_A web application to plan day or multi-day hikes combining public transport and open data._
-
-### 🌄 What is it?
-
-**Lignes de Crêtes** helps you plan beautiful hikes — from your home, using only **public transport**. It targets experienced mountaineers but aims to stay accessible to casual hikers as well.
-
-- Select a **starting point** (or both start and end)
-- Choose a **date**
-- The app finds the **best public transport + hike combo**, and the way back
-- You can **export the GPX** track for offline use
-
-Initial focus: the Rhône-Alpes region. Future expansions possible.
-
-### ⚙️ Tech Stack
-
-- **Back-end:** Python, Django, PostGIS  
-- **Front-end:** Django templates + Leaflet (OSM-based maps)  
-- **Mapping:** OpenStreetMap for trails, elevation, and POIs  
-- **Transport data:** GTFS feeds (SNCF, regional networks)  
-- **Export:** GPX file generation  
-
-### 📦 MVP Features
-
-- 🚆 Compute round-trips using public transportation  
-- 🥾 Generate optimized hiking loops or point-to-point tracks (distance, elevation gain)  
-- 🗺️ Interactive map with trails and POIs  
-- 📤 GPX export  
-- ✅ Anonymous usage (no account needed yet)  
-
-### 🛣 Roadmap
-
-Planned features:
-
-- Multi-day hike planner with hut suggestions  
-- Accounts and saved/shared hikes  
-- Trail ratings, difficulty levels  
-- Expanded geographic coverage  
-- Donation-based sustainability  
-
-📍 **See our [Backlog](https://github.com/aangelot/Lignes-de-cretes/projects?query=is%3Aopen)** for details.
-
-### 🌍 Open Source & Licensing
-
-This project is fully **open source**, licensed under the **MIT license**.
-
-> ⚠️ Use of IGN data is under review. Legal disclaimers will be displayed as needed.  
-> Main geographic data comes from the **OpenStreetMap community**.
-
-### 🤝 How to Contribute
-
-We welcome all contributions:
-
-- Integrating GTFS feeds  
-- Enhancing OSM data (POIs, water, huts, trails)  
-- Improving UI/UX  
-- Scaling to more regions  
-
-Feel free to open an issue or a pull request!
-
----
-
-## 🇫🇷 Français – Lignes de Crêtes
-
 ### 🌄 Qu'est-ce que c'est ?
 
 **Lignes de Crêtes** est une application web pour planifier des randonnées à la journée ou sur plusieurs jours, en **utilisant les transports en commun**.
@@ -76,7 +7,7 @@ Feel free to open an issue or a pull request!
 - Choisissez un **point de départ** (ou départ + arrivée)
 - Indiquez une **date**
 - L’outil vous propose un enchaînement **transport → rando → transport retour**
-- Vous pouvez **exporter la trace GPX** pour l’utiliser hors ligne
+- Vous pouvez **exporter la trace GPX** pour l’utiliser hors ligne [à venir]
 
 Première région couverte : Rhône-Alpes.
 
@@ -126,16 +57,15 @@ Toute aide est la bienvenue :
 
 Envoyez une issue ou une pull request !
 
-### 🏕 Pourquoi “Lignes de Crêtes” ?
 
-Les lignes de crêtes sont les chemins visibles sur les sommets. Elles symbolisent l’altitude, la progression et la clarté d’orientation. Un nom qui reflète notre ambition : naviguer entre nature, infrastructures et liberté.
+# Documentation technique
 
-# To reproduce 
+Voici le process de calcul du meilleur itinéraire :
+<img width="6877" height="3375" alt="Process lignes de crêtes" src="https://github.com/user-attachments/assets/10166174-d3df-46a0-bd1f-c4c0b92c6e4d" />
 
-## Step 1 : get and score all public transport stops 
-First try within the Chartreuse park only 
-Download the GeoJSON of the park here : https://data-interne.ademe.fr/datasets/pnr 
-And store it in data/input/pnr.geojson
+## Pour reproduire
+Télécharger le fichier GeoJSON des parcs naturels ici : https://data-interne.ademe.fr/datasets/pnr
+Et l'enregistrer dans data/input/pnr.geojson
 
-Then download all public stop in France here : https://transport.data.gouv.fr/datasets/arrets-de-transport-en-france 
-And store the csv file in data/input/stops_france.csv
+Télécharger ensuite tous les arrêts publics en France ici : https://transport.data.gouv.fr/datasets/arrets-de-transport-en-france
+Et enregistrer le fichier CSV dans data/input/stops_france.csv
