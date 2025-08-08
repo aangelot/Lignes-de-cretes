@@ -2,8 +2,9 @@ import geopandas as gpd
 from sklearn.preprocessing import MinMaxScaler
 
 # Charger le fichier GeoJSON
-file_path = "data/output/chartreuse_scores_final.geojson"
-gdf = gpd.read_file(file_path)
+file_path_input = "data/intermediate/chartreuse_scores.geojson"
+
+gdf = gpd.read_file(file_path_input)
 
 # Colonnes à normaliser
 columns_to_normalize = [
@@ -25,6 +26,8 @@ for i, col in enumerate(columns_to_normalize):
     gdf[new_col] = normalized_values[:, i]
 
 # Sauvegarder en écrasant le fichier d'origine
-gdf.to_file(file_path, driver="GeoJSON")
+file_path_output = "data/output/chartreuse_scores_final.geojson"
+
+gdf.to_file(file_path_output, driver="GeoJSON")
 
 print("✅ Fichier mis à jour avec colonnes normalisées.")
