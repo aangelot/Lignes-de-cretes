@@ -1,16 +1,65 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
     <title>Lignes de Crêtes</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <!-- Leaflet CSS and JS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     {% load static %}
-    <link rel="stylesheet" type="text/css" href="{% static 'hello/site.css' %}"/>
+    <link rel="stylesheet" type="text/css" href="{% static 'hello/site.css' %}" />
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
+    <style>
+        /* Simple styles pour étapes */
+        #progress-steps {
+            margin-top: 1em;
+            font-family: Arial, sans-serif;
+            user-select: none;
+        }
+        #progress-steps li {
+            list-style: none;
+            margin-bottom: 0.3em;
+            font-size: 1em;
+            color: #555;
+            display: flex;
+            align-items: center;
+        }
+        #progress-steps li span.checkmark {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            margin-right: 8px;
+            border-radius: 50%;
+            border: 2px solid #ccc;
+            text-align: center;
+            line-height: 16px;
+            font-weight: bold;
+            color: white;
+        }
+        #progress-steps li.done span.checkmark {
+            background-color: #4CAF50;
+            border-color: #4CAF50;
+        }
+        #progress-steps li.current span.checkmark {
+            border-color: #2196F3;
+            color: #2196F3;
+            font-weight: bold;
+            animation: pulse 1.5s infinite;
+        }
+        #progress-steps {
+            display: none;
+        }
+        #progress-steps.active {
+            display: block;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+    </style>
 </head>
 <body>
 <div class="container">
@@ -38,12 +87,17 @@
             </select>
 
             <label for="randomness">Aléatoire (randomness) : <span id="randomness-value">0.30</span></label>
-            <input type="range" id="randomness" name="randomness" min="0" max="1" step="0.01" value="0.3" oninput="document.getElementById('randomness-value').textContent = this.value">
+            <input type="range" id="randomness" name="randomness" min="0" max="1" step="0.01" value="0.3" />
+            <!-- suppression de l'attribut oninput ici -->
 
-            <button type="submit">Trouver mon trek</button>
+            <button type="submit" id="submit-btn">Trouver mon trek</button>
         </form>
 
-
+        <ul id="progress-steps" aria-live="polite" aria-atomic="true" role="status">
+            <li id="step-1"><span class="checkmark">○</span> Parcourir tout le massif</li>
+            <li id="step-2"><span class="checkmark">○</span> Trouver un point de départ et d'arrivée</li>
+            <li id="step-3"><span class="checkmark">○</span> Trouver le meilleur itinéraire</li>
+        </ul>
     </div>
     <div class="map-container">
         <div id="map"></div>
@@ -51,7 +105,7 @@
 </div>
 
 {% if path %}
-    <div id="path-data" data-coords='{{ path|escapejs }}'></div>
+<div id="path-data" data-coords='{{ path|escapejs }}'></div>
 {% endif %}
 
 <script>
@@ -63,15 +117,80 @@
 
     let currentLayer = null;
 
+    const steps = [
+        { id: "step-1", label: "Parcourir tout le massif" },
+        { id: "step-2", label: "Trouver un point de départ et d'arrivée" },
+        { id: "step-3", label: "Trouver le meilleur itinéraire" },
+    ];
+
+    function resetSteps() {
+        steps.forEach(step => {
+            const el = document.getElementById(step.id);
+            el.classList.remove('done', 'current');
+            el.querySelector('.checkmark').textContent = '○';
+        });
+    }
+
+    function markStepDone(index) {
+        const el = document.getElementById(steps[index].id);
+        el.classList.remove('current');
+        el.classList.add('done');
+        el.querySelector('.checkmark').textContent = '✓';
+    }
+
+    function markStepCurrent(index) {
+        const el = document.getElementById(steps[index].id);
+        el.classList.add('current');
+        el.querySelector('.checkmark').textContent = '●';
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // Synchroniser l'affichage du slider au chargement
+        const slider = document.getElementById('randomness');
+        const display = document.getElementById('randomness-value');
+        display.textContent = slider.value;
+
+        // Mise à jour dynamique quand on bouge le slider
+        slider.addEventListener('input', () => {
+            display.textContent = slider.value;
+        });
+    });
+
     document.getElementById('trek-form').addEventListener('submit', function (e) {
         e.preventDefault();
+
+        const progressSteps = document.getElementById('progress-steps');
+        progressSteps.classList.add('active'); // Affiche la liste au démarrage
+
+        const submitBtn = document.getElementById('submit-btn');
+        submitBtn.disabled = true;
+        const originalBtnText = submitBtn.textContent;
+        submitBtn.textContent = 'Calcul en cours…';
+
+        resetSteps();
+
+        // Simuler l’avancement côté client, interval approximatif
+        let stepIndex = 0;
+        markStepCurrent(stepIndex);
+
+        const stepDurations = [1500, 2000, 3000]; // Durées simulées en ms
+
+        function nextStep() {
+            markStepDone(stepIndex);
+            stepIndex++;
+            if (stepIndex < steps.length) {
+                markStepCurrent(stepIndex);
+                setTimeout(nextStep, stepDurations[stepIndex]);
+            }
+        }
+
+        setTimeout(nextStep, stepDurations[stepIndex]);
 
         const city = document.getElementById('city').value;
         const massif = document.getElementById('massif').value;
         const level = document.getElementById('level').value;
-        const randomness = document.getElementById('randomness').value;  // Nouveau paramètre
+        const randomness = document.getElementById('randomness').value;
 
-        // Construction de l'URL GET avec paramètres, y compris randomness
         const url = `/get_route/?city=${encodeURIComponent(city)}&massif=${encodeURIComponent(massif)}&level=${encodeURIComponent(level)}&randomness=${encodeURIComponent(randomness)}`;
 
         fetch(url)
@@ -95,12 +214,17 @@
             .catch(error => {
                 alert(error.message);
                 console.error(error);
+            })
+            .finally(() => {
+                // Fin du calcul
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalBtnText;
+                resetSteps();
+                // Marquer toutes les étapes comme faites
+                steps.forEach((_, i) => markStepDone(i));
+                progressSteps.classList.remove('active');
             });
     });
 </script>
-
-
-
-
 </body>
 </html>
