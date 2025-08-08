@@ -2,7 +2,7 @@ import osmnx as ox
 import geopandas as gpd
 from shapely.ops import unary_union 
 
-# 1. Charger la commune du Sappey-en-Chartreuse et buffer
+# 1. Charger le PNR
 pnr_name = "Parc naturel régional de Chartreuse, France"
 gdf_pnr = ox.geocode_to_gdf(pnr_name)
 gdf_pnr = gdf_pnr.to_crs(epsg=2154)

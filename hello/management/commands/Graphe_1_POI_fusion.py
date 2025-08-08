@@ -45,7 +45,7 @@ for _, poi in gdf_poi.iterrows():
         base_score = 0.0
 
     if str(poi.get("type", "")).lower() == "summit":
-        base_score *= 5
+        base_score *= 5 #bonification pour les sommets
 
     buffer = poi_point.buffer(100)  # 100 mètres
 

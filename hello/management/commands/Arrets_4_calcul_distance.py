@@ -34,5 +34,5 @@ gdf_chartreuse = gdf_chartreuse.to_crs(epsg=4326)  # Reprojection en WGS 84 pour
 
 
 # Sauvegarde
-gdf_stops.to_file("data/output/chartreuse_scores_final.geojson", driver="GeoJSON")
-print("Fichier exporté : data/output/chartreuse_scores_final.geojson")
+gdf_stops.to_file("data/intermediate/chartreuse_scores.geojson", driver="GeoJSON")
+print("Fichier exporté : data/intermediate/chartreuse_scores.geojson")

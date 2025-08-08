@@ -60,36 +60,6 @@ for idx, feature in paths.iterrows():
 
 print(f"✅ Graphe proprement construit : {G.number_of_nodes()} nœuds, {G.number_of_edges()} arêtes.")
 
-import geopandas as gpd
-from shapely.geometry import LineString
-import pandas as pd
-
-# Liste pour stocker les arêtes sous forme de dictionnaires
-edges_data = []
-
-for i, (u, v, data) in enumerate(G.edges(data=True)):
-    if i % 10 != 0:
-        continue  # ne conserver qu'1 arête sur 10
-
-    line = LineString([u, v])
-    edges_data.append({
-        "from": u,
-        "to": v,
-        "score": data["score"],
-        "length": data["length"],
-        "geometry": line
-    })
-
-# Créer un GeoDataFrame
-gdf_edges = gpd.GeoDataFrame(edges_data, crs="EPSG:4326")
-
-# Export en GeoJSON
-output_path = "data/output/graph_edges_sampled.geojson"
-gdf_edges.to_file(output_path, driver="GeoJSON")
-
-print(f"✅ Graphe échantillonné exporté : {output_path} ({len(gdf_edges)} arêtes)")
-
-
 # === Association des arrêts de transport aux nœuds du graphe avec KDTree ===
 
 graph_nodes = list(G.nodes)
