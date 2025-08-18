@@ -34,6 +34,13 @@ def get_transit_directions(origin, destination, departure_time):
     data = r.json()
     return data
 
+def is_valid_transit(result):
+    """Vérifie si le résultat contient bien des itinéraires de transport en commun"""
+    if not result or not isinstance(result, dict):
+        return False
+    # Vérifier si 'routes' existe et contient quelque chose
+    return "routes" in result and len(result["routes"]) > 0
+
 def compute_best_route(level: str = 'intermediaire', city: str = 'Lyon', massif: str = 'Chartreuse', randomness: float = 0.3, departure_datetime: str | None = None, return_datetime: str | None = None):    
     """
     Calcule la meilleure route optimisée selon le niveau,
@@ -115,6 +122,7 @@ def compute_best_route(level: str = 'intermediaire', city: str = 'Lyon', massif:
     # Boucle principale de recherche
     best_feature = None
     best_score = float('-inf')
+    itineraires = []
 
     for start_id, start in top_depart:
         start_coord = start["coord"]
@@ -140,58 +148,67 @@ def compute_best_route(level: str = 'intermediaire', city: str = 'Lyon', massif:
                 path_score += edge_data.get("score", 0)
                 path_length += edge_data.get("length", 0)
 
-            total_score = start["depart_score"] + end["arrival_score"] + path_score
+            total_score = 100*start["depart_score"] + 100*end["arrival_score"] + path_score
 
             if path_length == 0 or path_length > max_distance_m:
                 continue
 
-            if total_score > best_score:
-                best_score = total_score
-                best_feature = {
-                    "type": "Feature",
-                    "geometry": mapping(LineString(path)),
-                    "properties": {
-                        "start_id": start_id,
-                        "end_id": end_id,
-                        "depart_score": start["depart_score"],
-                        "arrival_score": end["arrival_score"],
-                        "path_score": path_score,
-                        "path_length": path_length,
-                        "total_score": total_score
-                    }
+            feature = {
+                "type": "Feature",
+                "geometry": mapping(LineString(path)),
+                "properties": {
+                    "start_id": start_id,
+                    "start_coord": start_coord,
+                    "end_coord": end_coord,
+                    "end_id": end_id,
+                    "depart_score": start["depart_score"],
+                    "arrival_score": end["arrival_score"],
+                    "path_score": path_score,
+                    "path_length": path_length,
+                    "total_score": total_score
                 }
+            }
+            itineraires.append(feature)
+    itineraires = sorted(itineraires, key=lambda x: x["properties"]["total_score"], reverse=True)
 
-
-    if best_feature is None:
-        return {
-            "type": "FeatureCollection",
-            "features": []
-        }
-    
-    # Récupérer start_id et end_id depuis best_feature
-    start_id = str(best_feature["properties"]["start_id"])
-    end_id = str(best_feature["properties"]["end_id"])
-
-    # Coordonnées des stops
-    start_coords = stop_nodes[start_id]["node"]  # [lon, lat]
-    end_coords = stop_nodes[end_id]["node"]      # [lon, lat]
-
-    # Aller → city vers stop de départ
+    transit_go = None
+    transit_back = None
+    i = 0
     if departure_datetime:
-        dep_dt = datetime.fromisoformat(departure_datetime)  # ex: "2025-08-20T08:30"
-        origin_coords = city_hubs[city]["coords"]  # [lat, lon]
-        origin = {"latitude": origin_coords[0], "longitude": origin_coords[1]}
-        destination = {"latitude": start_coords[1], "longitude": start_coords[0]}
-        print(origin, destination, dep_dt)
-        best_feature["properties"]["transit_go"] = get_transit_directions(origin, destination, dep_dt)
-
-    # Retour → stop d’arrivée vers city
+            dep_dt = datetime.fromisoformat(departure_datetime)  # ex: "2025-08-20T08:30"
     if return_datetime:
         ret_dt = datetime.fromisoformat(return_datetime)
-        origin = {"latitude": end_coords[1], "longitude": end_coords[0]}
-        destination = {"latitude": origin_coords[0], "longitude": origin_coords[1]}
-        print(origin, destination, ret_dt)
-        best_feature["properties"]["transit_back"] = get_transit_directions(origin, destination, ret_dt)
+    origin_coords = city_hubs[city]["coords"]  # [lat, lon]
+
+    while (transit_go is None or transit_back is None) and i < len(itineraires):
+        # Aller
+        origin = {"latitude": origin_coords[0], "longitude": origin_coords[1]}
+        destination = {
+            "latitude": itineraires[i]["properties"]["start_coord"][1],
+            "longitude": itineraires[i]["properties"]["start_coord"][0]
+        }
+        result_go = get_transit_directions(origin, destination, dep_dt)
+        if is_valid_transit(result_go):
+            transit_go = result_go
+            # Retour
+            origin = {
+                "latitude": itineraires[i]["properties"]["end_coord"][1],
+                "longitude": itineraires[i]["properties"]["end_coord"][0]
+            }
+            destination = {"latitude": origin_coords[0], "longitude": origin_coords[1]}
+            result_back = get_transit_directions(origin, destination, ret_dt)
+            if is_valid_transit(result_back):
+                transit_back = result_back
+        i += 1
+
+    if transit_go is None or transit_back is None:
+        print("Aucun itinéraire de transport en commun trouvé.")
+        return {"type": "FeatureCollection", "features": []}
+
+    best_feature = itineraires[i-1]  # -1 car i a été incrémenté
+    best_feature["properties"]["transit_go"] = transit_go
+    best_feature["properties"]["transit_back"] = transit_back
+
     return {
         "type": "FeatureCollection",
         "features": [best_feature]
