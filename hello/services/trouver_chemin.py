@@ -108,24 +108,6 @@ def compute_best_route(level: str = 'intermediaire', city: str = 'Lyon', massif:
 
     top_depart = select_top_with_randomness(stop_nodes, "depart_score", top_n=5, randomness=randomness)
     top_arrival = select_top_with_randomness(stop_nodes, "arrival_score", top_n=5, randomness=randomness)
-
-    # Fonction pour filtrer points trop proches (< 500m) en ne gardant que celui avec meilleur score
-    def filter_points(points, score_key):
-        filtered = []
-        for stop_id, stop in points:
-            coord = stop["coord"]
-            too_close = False
-            for _, fstop in filtered:
-                dist = euclidean(coord, fstop["coord"]) * 111000
-                if dist < 500:  # seuil 500m
-                    too_close = True
-                    break
-            if not too_close:
-                filtered.append((stop_id, stop))
-        return filtered
-
-    top_depart = filter_points(top_depart, "depart_score")
-    top_arrival = filter_points(top_arrival, "arrival_score")
     
     def edge_cost(u, v, d):
         return d["length"] / (d.get("score", 0) + 1e-6)
