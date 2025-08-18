@@ -11,55 +11,6 @@
     <link rel="stylesheet" type="text/css" href="{% static 'hello/site.css' %}" />
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-    <style>
-        /* Simple styles pour étapes */
-        #progress-steps {
-            margin-top: 1em;
-            font-family: Arial, sans-serif;
-            user-select: none;
-        }
-        #progress-steps li {
-            list-style: none;
-            margin-bottom: 0.3em;
-            font-size: 1em;
-            color: #555;
-            display: flex;
-            align-items: center;
-        }
-        #progress-steps li span.checkmark {
-            display: inline-block;
-            width: 18px;
-            height: 18px;
-            margin-right: 8px;
-            border-radius: 50%;
-            border: 2px solid #ccc;
-            text-align: center;
-            line-height: 16px;
-            font-weight: bold;
-            color: white;
-        }
-        #progress-steps li.done span.checkmark {
-            background-color: #4CAF50;
-            border-color: #4CAF50;
-        }
-        #progress-steps li.current span.checkmark {
-            border-color: #2196F3;
-            color: #2196F3;
-            font-weight: bold;
-            animation: pulse 1.5s infinite;
-        }
-        #progress-steps {
-            display: none;
-        }
-        #progress-steps.active {
-            display: block;
-        }
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.4; }
-            100% { opacity: 1; }
-        }
-    </style>
 </head>
 <body>
 <div class="container">
@@ -68,7 +19,7 @@
         <form id="trek-form" method="get">
             <label for="city">Ville de départ :</label>
             <select id="city" name="city">
-                <option value="lyon" selected>Lyon</option>
+                <option value="Lyon" selected>Lyon</option>
                 <!-- D'autres villes à ajouter plus tard -->
             </select>
 
@@ -77,6 +28,13 @@
                 <option value="chartreuse" selected>Chartreuse</option>
                 <!-- D'autres massifs à ajouter plus tard -->
             </select>
+
+            <label for="departure_datetime">Date et heure de départ :</label>
+            <input type="datetime-local" id="departure_datetime" name="departure_datetime" required>
+
+            <label for="return_datetime">Date et heure de retour :</label>
+            <input type="datetime-local" id="return_datetime" name="return_datetime" required>
+
 
             <label for="level">Niveau :</label>
             <select id="level" name="level">
@@ -93,11 +51,8 @@
             <button type="submit" id="submit-btn">Trouver mon trek</button>
         </form>
 
-        <ul id="progress-steps" aria-live="polite" aria-atomic="true" role="status">
-            <li id="step-1"><span class="checkmark">○</span> Parcourir tout le massif</li>
-            <li id="step-2"><span class="checkmark">○</span> Trouver un point de départ et d'arrivée</li>
-            <li id="step-3"><span class="checkmark">○</span> Trouver le meilleur itinéraire</li>
-        </ul>
+        <div id="transit-info"></div>
+
     </div>
     <div class="map-container">
         <div id="map"></div>
@@ -117,33 +72,6 @@
 
     let currentLayer = null;
 
-    const steps = [
-        { id: "step-1", label: "Parcourir tout le massif" },
-        { id: "step-2", label: "Trouver un point de départ et d'arrivée" },
-        { id: "step-3", label: "Trouver le meilleur itinéraire" },
-    ];
-
-    function resetSteps() {
-        steps.forEach(step => {
-            const el = document.getElementById(step.id);
-            el.classList.remove('done', 'current');
-            el.querySelector('.checkmark').textContent = '○';
-        });
-    }
-
-    function markStepDone(index) {
-        const el = document.getElementById(steps[index].id);
-        el.classList.remove('current');
-        el.classList.add('done');
-        el.querySelector('.checkmark').textContent = '✓';
-    }
-
-    function markStepCurrent(index) {
-        const el = document.getElementById(steps[index].id);
-        el.classList.add('current');
-        el.querySelector('.checkmark').textContent = '●';
-    }
-
     document.addEventListener('DOMContentLoaded', () => {
         // Synchroniser l'affichage du slider au chargement
         const slider = document.getElementById('randomness');
@@ -159,40 +87,20 @@
     document.getElementById('trek-form').addEventListener('submit', function (e) {
         e.preventDefault();
 
-        const progressSteps = document.getElementById('progress-steps');
-        progressSteps.classList.add('active'); // Affiche la liste au démarrage
-
         const submitBtn = document.getElementById('submit-btn');
         submitBtn.disabled = true;
         const originalBtnText = submitBtn.textContent;
         submitBtn.textContent = 'Calcul en cours…';
 
-        resetSteps();
-
-        // Simuler l’avancement côté client, interval approximatif
-        let stepIndex = 0;
-        markStepCurrent(stepIndex);
-
-        const stepDurations = [1500, 2000, 3000]; // Durées simulées en ms
-
-        function nextStep() {
-            markStepDone(stepIndex);
-            stepIndex++;
-            if (stepIndex < steps.length) {
-                markStepCurrent(stepIndex);
-                setTimeout(nextStep, stepDurations[stepIndex]);
-            }
-        }
-
-        setTimeout(nextStep, stepDurations[stepIndex]);
-
         const city = document.getElementById('city').value;
         const massif = document.getElementById('massif').value;
         const level = document.getElementById('level').value;
         const randomness = document.getElementById('randomness').value;
+        const departure_datetime = document.getElementById('departure_datetime').value;
+        const return_datetime = document.getElementById('return_datetime').value;
 
-        const url = `/get_route/?city=${encodeURIComponent(city)}&massif=${encodeURIComponent(massif)}&level=${encodeURIComponent(level)}&randomness=${encodeURIComponent(randomness)}`;
-
+        const url = `/get_route/?city=${encodeURIComponent(city)}&massif=${encodeURIComponent(massif)}&level=${encodeURIComponent(level)}&randomness=${encodeURIComponent(randomness)}&departure_datetime=${encodeURIComponent(departure_datetime)}&return_datetime=${encodeURIComponent(return_datetime)}`;
+        
         fetch(url)
             .then(response => {
                 if (!response.ok) {
@@ -210,6 +118,47 @@
                 }).addTo(map);
 
                 map.fitBounds(currentLayer.getBounds());
+                const container = document.getElementById('transit-info');
+                container.innerHTML = "";
+
+                function afficherTransit(transitData, titre) {
+                container.innerHTML += `<h2>${titre}</h2>`;
+                transitData.routes.forEach(route => {
+                    route.legs.forEach(leg => {
+                    leg.steps.forEach(step => {
+                        if (step.travelMode === "TRANSIT") {
+                        const t = step.transitDetails;
+                        const depStop = t.stopDetails.departureStop.name;
+                        const arrStop = t.stopDetails.arrivalStop.name;
+                        const depTime = new Date(t.stopDetails.departureTime).toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'});
+                        const arrTime = new Date(t.stopDetails.arrivalTime).toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'});
+                        const line = t.transitLine.nameShort + " " + t.transitLine.name;
+                        const vehicle = t.transitLine.vehicle.name.text;
+                        const headsign = t.headsign;
+                        const link = t.transitLine.agencies[0].uri;
+
+                        container.innerHTML += `
+                            <p>
+                            Prendre le ${vehicle} ${line} à ${depStop} à ${depTime}, direction ${headsign}, arrivée à ${arrStop} à ${arrTime}. 
+                            Plus d'informations sur le <a href="${link}" target="_blank">site de l'agence</a>.
+                            </p>
+                        `;
+                        }
+                    });
+                    });
+                });
+                container.innerHTML += `<hr>`;
+                }
+
+                // Affichage de l'aller
+                data.features.forEach(feature => {
+                if (feature.properties.transit_go) {
+                    afficherTransit(feature.properties.transit_go, "Aller");
+                }
+                if (feature.properties.transit_back) {
+                    afficherTransit(feature.properties.transit_back, "Retour");
+                }
+                });
             })
             .catch(error => {
                 alert(error.message);
@@ -219,10 +168,6 @@
                 // Fin du calcul
                 submitBtn.disabled = false;
                 submitBtn.textContent = originalBtnText;
-                resetSteps();
-                // Marquer toutes les étapes comme faites
-                steps.forEach((_, i) => markStepDone(i));
-                progressSteps.classList.remove('active');
             });
     });
 </script>
