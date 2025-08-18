@@ -4,18 +4,42 @@ from shapely.geometry import LineString, mapping
 from scipy.spatial.distance import euclidean
 import pickle
 import os
+from dotenv import load_dotenv
 import time
 import numpy as np
+from datetime import datetime
+import requests
 
-def compute_best_route(level='intermediaire', city='Lyon', massif='Chartreuse', randomness=0.3):
+load_dotenv()
+GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_API_KEY")  
+
+def get_transit_directions(origin, destination, departure_time):
+    """Appelle l’API Google Directions pour un itinéraire en transport en commun."""
+    url = "https://routes.googleapis.com/directions/v2:computeRoutes"
+    headers = {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": GOOGLE_MAPS_API_KEY,
+        "X-Goog-FieldMask": "*",
+    }
+    body = {
+        "origin": {"location": {"latLng": origin}},
+        "destination": {"location": {"latLng": destination}},
+        "travelMode": "TRANSIT",
+        "departureTime": departure_time.astimezone().isoformat(),
+        "transitPreferences": {
+            "routingPreference": "FEWER_TRANSFERS"
+        }
+    }
+    r = requests.post(url, headers=headers, json=body)
+    data = r.json()
+    return data
+
+def compute_best_route(level: str = 'intermediaire', city: str = 'Lyon', massif: str = 'Chartreuse', randomness: float = 0.3, departure_datetime: str | None = None, return_datetime: str | None = None):    
     """
     Calcule la meilleure route optimisée selon le niveau,
     et retourne un dict GeoJSON avec UNE seule Feature, la meilleure.
     city et massif sont pour l'instant ignorés mais gardés en argument.
     """
-
-    t0 = time.perf_counter()
-
     level_distance_map = {
         'debutant': 10_000,
         'intermediaire': 20_000,
@@ -27,29 +51,29 @@ def compute_best_route(level='intermediaire', city='Lyon', massif='Chartreuse', 
     # Chargement des données
     graph_path = "data/output/hiking_graph.gpickle"
     stops_path = "data/output/stop_node_mapping.json"
+    city_hubs_path = "data/output/city_hubs.json"
 
     t_load_start = time.perf_counter()
     with open(graph_path, "rb") as f:
         G = pickle.load(f)
     with open(stops_path, "r") as f:
         stop_nodes = json.load(f)
-    t_load_end = time.perf_counter()
-    print(f"[compute_best_route] Chargement données : {t_load_end - t_load_start:.3f} sec")
+    with open(city_hubs_path, "r") as f:
+        city_hubs = json.load(f)
 
     # Calcul des scores
-    t_score_start = time.perf_counter()
     def compute_depart_score(props):
         return (
-            0.5 * (1 - props["duration_min_go_normalized"]) +
-            0.3 * props["elevation_normalized"] +
-            0.2 * props["distance_to_pnr_border_normalized"]
+            0.4 * (1 - props["duration_min_go_normalized"]) +
+            0.5 * props["elevation_normalized"] +
+            0.1 * props["distance_to_pnr_border_normalized"]
         )
 
     def compute_arrival_score(props):
         return (
-            0.5 * (1 - props["duration_min_back_normalized"]) +
-            0.3 * props["elevation_normalized"] +
-            0.2 * props["distance_to_pnr_border_normalized"]
+            0.4 * (1 - props["duration_min_back_normalized"]) +
+            0.5 * props["elevation_normalized"] +
+            0.1 * props["distance_to_pnr_border_normalized"]
         )
 
     for stop_id, stop in stop_nodes.items():
@@ -57,8 +81,6 @@ def compute_best_route(level='intermediaire', city='Lyon', massif='Chartreuse', 
         stop["depart_score"] = compute_depart_score(props)
         stop["arrival_score"] = compute_arrival_score(props)
         stop["coord"] = tuple(stop["node"])
-    t_score_end = time.perf_counter()
-    print(f"[compute_best_route] Calcul des scores : {t_score_end - t_score_start:.3f} sec")
     
     # Tri top départs / arrivées avec aléatoire
 
@@ -84,12 +106,8 @@ def compute_best_route(level='intermediaire', city='Lyon', massif='Chartreuse', 
         
         return selected
 
-    t_sort_start = time.perf_counter()
-    top_depart = select_top_with_randomness(stop_nodes, "depart_score", top_n=10, randomness=randomness)
-    top_arrival = select_top_with_randomness(stop_nodes, "arrival_score", top_n=10, randomness=randomness)
-
-    t_sort_end = time.perf_counter()
-    print(f"[compute_best_route] Tri top départs/arrivées : {t_sort_end - t_sort_start:.3f} sec")
+    top_depart = select_top_with_randomness(stop_nodes, "depart_score", top_n=5, randomness=randomness)
+    top_arrival = select_top_with_randomness(stop_nodes, "arrival_score", top_n=5, randomness=randomness)
 
     # Fonction pour filtrer points trop proches (< 500m) en ne gardant que celui avec meilleur score
     def filter_points(points, score_key):
@@ -113,7 +131,6 @@ def compute_best_route(level='intermediaire', city='Lyon', massif='Chartreuse', 
         return d["length"] / (d.get("score", 0) + 1e-6)
 
     # Boucle principale de recherche
-    t_loop_start = time.perf_counter()
     best_feature = None
     best_score = float('-inf')
 
@@ -161,18 +178,38 @@ def compute_best_route(level='intermediaire', city='Lyon', massif='Chartreuse', 
                         "total_score": total_score
                     }
                 }
-    t_loop_end = time.perf_counter()
-    print(f"[compute_best_route] Boucle de recherche : {t_loop_end - t_loop_start:.3f} sec")
 
-    # Temps total
-    print(f"[compute_best_route] Temps total : {t_loop_end - t0:.3f} sec")
 
     if best_feature is None:
         return {
             "type": "FeatureCollection",
             "features": []
         }
+    
+    # Récupérer start_id et end_id depuis best_feature
+    start_id = str(best_feature["properties"]["start_id"])
+    end_id = str(best_feature["properties"]["end_id"])
 
+    # Coordonnées des stops
+    start_coords = stop_nodes[start_id]["node"]  # [lon, lat]
+    end_coords = stop_nodes[end_id]["node"]      # [lon, lat]
+
+    # Aller → city vers stop de départ
+    if departure_datetime:
+        dep_dt = datetime.fromisoformat(departure_datetime)  # ex: "2025-08-20T08:30"
+        origin_coords = city_hubs[city]["coords"]  # [lat, lon]
+        origin = {"latitude": origin_coords[0], "longitude": origin_coords[1]}
+        destination = {"latitude": start_coords[1], "longitude": start_coords[0]}
+        print(origin, destination, dep_dt)
+        best_feature["properties"]["transit_go"] = get_transit_directions(origin, destination, dep_dt)
+
+    # Retour → stop d’arrivée vers city
+    if return_datetime:
+        ret_dt = datetime.fromisoformat(return_datetime)
+        origin = {"latitude": end_coords[1], "longitude": end_coords[0]}
+        destination = {"latitude": origin_coords[0], "longitude": origin_coords[1]}
+        print(origin, destination, ret_dt)
+        best_feature["properties"]["transit_back"] = get_transit_directions(origin, destination, ret_dt)
     return {
         "type": "FeatureCollection",
         "features": [best_feature]
@@ -185,7 +222,5 @@ def save_geojson(data, output_path="data/paths/optimized_routes.geojson"):
         json.dump(data, f, indent=2)
 
 if __name__ == "__main__":
-    print("Test de compute_best_route() avec niveau 'debutant'...")
-    geojson = compute_best_route(level='expert')
+    geojson = compute_best_route(level='debutant', departure_datetime="2025-08-18T08:30", return_datetime="2025-08-18T19:00")
     save_geojson(geojson)
-    print("✅ Fichier GeoJSON généré dans data/paths/optimized_routes.geojson")

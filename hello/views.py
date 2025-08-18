@@ -12,7 +12,10 @@ def get_route(request):
             massif = request.GET.get("massif", "Chartreuse")
             level = request.GET.get("level", "debutant")
             randomness_str = request.GET.get("randomness", "0.3")
+            departure_datetime = request.GET.get("departure_datetime")
+            return_datetime = request.GET.get("return_datetime")
 
+            # Conversion du paramètre randomness
             try:
                 randomness = float(randomness_str)
                 if not (0 <= randomness <= 1):
@@ -20,8 +23,15 @@ def get_route(request):
             except ValueError:
                 randomness = 0.3
 
-            # Appel direct à la logique métier avec randomness
-            geojson_data = compute_best_route(city=city, massif=massif, level=level, randomness=randomness)
+            # Appel à la logique métier avec les nouveaux paramètres
+            geojson_data = compute_best_route(
+                city=city,
+                massif=massif,
+                level=level,
+                randomness=randomness,
+                departure_datetime=departure_datetime,
+                return_datetime=return_datetime
+            )
 
             # Sauvegarde facultative
             save_geojson(geojson_data)

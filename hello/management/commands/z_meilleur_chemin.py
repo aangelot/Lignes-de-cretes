@@ -7,22 +7,59 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('--city', type=str, default='Lyon')
         parser.add_argument('--massif', type=str, default='Chartreuse')
-        parser.add_argument('--level', type=str, choices=['debutant', 'intermediaire', 'avance', 'expert'], default='debutant')
-        parser.add_argument('--randomness', type=float, default=0.3, help="Valeur entre 0 et 1 pour l'aléatoire dans la sélection des points")
+        parser.add_argument(
+            '--level',
+            type=str,
+            choices=['debutant', 'intermediaire', 'avance', 'expert'],
+            default='debutant'
+        )
+        parser.add_argument(
+            '--randomness',
+            type=float,
+            default=0.3,
+            help="Valeur entre 0 et 1 pour l'aléatoire dans la sélection des points"
+        )
+        parser.add_argument(
+            '--departure_datetime',
+            type=str,
+            help="Date et heure de départ au format ISO (ex: 2025-08-18T08:30)"
+        )
+        parser.add_argument(
+            '--return_datetime',
+            type=str,
+            help="Date et heure de retour au format ISO (ex: 2025-08-18T19:00)"
+        )
 
     def handle(self, *args, **options):
         city = options['city']
         massif = options['massif']
         level = options['level']
         randomness = options['randomness']
+        departure_datetime = options.get('departure_datetime')
+        return_datetime = options.get('return_datetime')
 
         if not (0 <= randomness <= 1):
-            self.stdout.write(self.style.ERROR("L'argument --randomness doit être compris entre 0 et 1"))
+            self.stdout.write(
+                self.style.ERROR("L'argument --randomness doit être compris entre 0 et 1")
+            )
             return
 
-        self.stdout.write(self.style.SUCCESS(f"Calcul du meilleur chemin pour city={city}, massif={massif}, niveau={level}, randomness={randomness}"))
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Calcul du meilleur chemin pour city={city}, massif={massif}, "
+                f"niveau={level}, randomness={randomness}, "
+                f"departure={departure_datetime}, return={return_datetime}"
+            )
+        )
 
-        geojson = compute_best_route(level=level, city=city, massif=massif, randomness=randomness)
+        geojson = compute_best_route(
+            city=city,
+            massif=massif,
+            level=level,
+            randomness=randomness,
+            departure_datetime=departure_datetime,
+            return_datetime=return_datetime
+        )
         save_geojson(geojson)
 
         self.stdout.write(self.style.SUCCESS("✅ Itinéraire optimisé généré avec succès"))
