@@ -112,15 +112,20 @@
                 if (currentLayer) {
                     map.removeLayer(currentLayer);
                 }
+                const container = document.getElementById('transit-info');
+                container.innerHTML = "";
+
+                if (!data.features || data.features.length === 0) {
+                    container.innerHTML = "<p style='color:red;'>Désolé, aucun itinéraire n'a été trouvé, veuillez réessayer.</p>";
+                    return; // on sort pour ne pas essayer d'afficher une couche vide
+                }
 
                 currentLayer = L.geoJSON(data, {
                     style: { color: 'blue' }
                 }).addTo(map);
 
                 map.fitBounds(currentLayer.getBounds());
-                const container = document.getElementById('transit-info');
-                container.innerHTML = "";
-
+               
                 function afficherTransit(transitData, titre) {
                 container.innerHTML += `<h2>${titre}</h2>`;
                 transitData.routes.forEach(route => {
