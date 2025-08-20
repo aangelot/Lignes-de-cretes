@@ -41,6 +41,92 @@ def is_valid_transit(result):
     # Vérifier si 'routes' existe et contient quelque chose
     return "routes" in result and len(result["routes"]) > 0
 
+import networkx as nx
+from shapely.geometry import LineString, mapping
+
+def extend_linestring_with_transit(best_feature, G, edge_cost="edge_cost"):
+    """
+    Étend le LineString du meilleur chemin avec les tronçons piétons
+    reliant le transport en commun (Google Routes) au graphe piéton.
+    
+    - Ajoute au début : chemin entre arrêt de descente (dernier step TRANSIT du 'travel_go')
+      et le début du LineString
+    - Ajoute à la fin : chemin entre arrêt de montée (premier step TRANSIT du 'travel_back')
+      et la fin du LineString
+    """
+    
+    coords = list(best_feature["geometry"]["coordinates"])
+
+    # ---- 1. Aller : compléter le début ----
+    travel_go = best_feature["properties"].get("transit_go")
+    if travel_go:
+        steps = travel_go["routes"][0]["legs"][0]["steps"]
+        # on récupère le dernier step en TRANSIT
+        transit_steps = [s for s in steps if s["travelMode"] == "TRANSIT"]
+        if transit_steps:
+            last_transit = transit_steps[-1]
+            end_lat = last_transit["endLocation"]["latLng"]["latitude"]
+            end_lon = last_transit["endLocation"]["latLng"]["longitude"]
+            transit_end = (end_lon, end_lat)  # (lon, lat)
+
+            # début du chemin piéton
+            start_ls = tuple(coords[0])
+            print(transit_end in G, start_ls in G)
+            if transit_end not in G:
+                transit_end = min(G.nodes, key=lambda n: (n[0]-transit_end[0])**2 + (n[1]-transit_end[1])**2)
+
+            if start_ls not in G:
+                start_ls = min(G.nodes, key=lambda n: (n[0]-start_ls[0])**2 + (n[1]-start_ls[1])**2)
+            print(transit_end in G, start_ls in G)
+
+            try:
+                # shortest path dans G
+                path = nx.shortest_path(G, source=transit_end, target=start_ls, weight=edge_cost)
+                # on ajoute ce chemin au début
+                coords = path + coords
+            except nx.NetworkXNoPath:
+                pass
+
+    # ---- 2. Retour : compléter la fin ----
+    travel_back = best_feature["properties"].get("transit_back")
+    if travel_back:
+        steps = travel_back["routes"][0]["legs"][0]["steps"]
+        # on récupère le premier step en TRANSIT
+        transit_steps = [s for s in steps if s["travelMode"] == "TRANSIT"]
+        if transit_steps:
+            first_transit = transit_steps[0]
+            start_lat = first_transit["startLocation"]["latLng"]["latitude"]
+            start_lon = first_transit["startLocation"]["latLng"]["longitude"]
+            transit_start = (start_lon, start_lat)
+
+            # fin du chemin piéton
+            end_ls = tuple(coords[-1])
+
+            if transit_start not in G:
+                transit_start = min(G.nodes, key=lambda n: (n[0]-transit_start[0])**2 + (n[1]-transit_start[1])**2)
+
+            if end_ls not in G:
+                end_ls = min(G.nodes, key=lambda n: (n[0]-end_ls[0])**2 + (n[1]-end_ls[1])**2)
+            try:
+                # shortest path dans G
+                path = nx.shortest_path(G, source=end_ls, target=transit_start, weight=edge_cost)
+                # on ajoute ce chemin à la fin (sans répéter le 1er point du path)
+                coords = coords + path[1:]
+            except nx.NetworkXNoPath:
+                pass
+
+    # ---- mise à jour du LineString ----
+    linestring = LineString(coords)
+    best_feature["geometry"] = mapping(linestring)
+
+    # ---- recalcul de la longueur totale ----
+    path_length = linestring.length
+    best_feature["properties"]["path_length"] = path_length
+
+    return best_feature
+
+
+
 def compute_best_route(level: str = 'intermediaire', city: str = 'Lyon', massif: str = 'Chartreuse', randomness: float = 0.3, departure_datetime: str | None = None, return_datetime: str | None = None):    
     """
     Calcule la meilleure route optimisée selon le niveau,
@@ -113,8 +199,8 @@ def compute_best_route(level: str = 'intermediaire', city: str = 'Lyon', massif:
         
         return selected
 
-    top_depart = select_top_with_randomness(stop_nodes, "depart_score", top_n=5, randomness=randomness)
-    top_arrival = select_top_with_randomness(stop_nodes, "arrival_score", top_n=5, randomness=randomness)
+    top_depart = select_top_with_randomness(stop_nodes, "depart_score", top_n=8, randomness=randomness)
+    top_arrival = select_top_with_randomness(stop_nodes, "arrival_score", top_n=8, randomness=randomness)
     
     def edge_cost(u, v, d):
         return d["length"] / (d.get("score", 0) + 1e-6)
@@ -209,6 +295,7 @@ def compute_best_route(level: str = 'intermediaire', city: str = 'Lyon', massif:
     best_feature["properties"]["transit_go"] = transit_go
     best_feature["properties"]["transit_back"] = transit_back
 
+    best_feature = extend_linestring_with_transit(best_feature, G, edge_cost)
     return {
         "type": "FeatureCollection",
         "features": [best_feature]
@@ -221,5 +308,5 @@ def save_geojson(data, output_path="data/paths/optimized_routes.geojson"):
         json.dump(data, f, indent=2)
 
 if __name__ == "__main__":
-    geojson = compute_best_route(level='debutant', departure_datetime="2025-08-18T08:30", return_datetime="2025-08-18T19:00")
+    geojson = compute_best_route(level='intermediaire', departure_datetime="2025-08-20T08:30", return_datetime="2025-08-20T19:00")
     save_geojson(geojson)
