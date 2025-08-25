@@ -1,12 +1,11 @@
 from django.core.management.base import BaseCommand
-from hello.services.trouver_chemin import compute_best_route, save_geojson
+from hello.services.trouver_chemin_2 import compute_best_route, save_geojson
 
 class Command(BaseCommand):
     help = "Calcule le meilleur chemin optimisé"
 
     def add_arguments(self, parser):
         parser.add_argument('--city', type=str, default='Lyon')
-        parser.add_argument('--massif', type=str, default='Chartreuse')
         parser.add_argument(
             '--level',
             type=str,
@@ -32,7 +31,6 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         city = options['city']
-        massif = options['massif']
         level = options['level']
         randomness = options['randomness']
         departure_datetime = options.get('departure_datetime')
@@ -46,20 +44,19 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"Calcul du meilleur chemin pour city={city}, massif={massif}, "
+                f"Calcul du meilleur chemin pour city={city}, "
                 f"niveau={level}, randomness={randomness}, "
                 f"departure={departure_datetime}, return={return_datetime}"
             )
         )
 
         geojson = compute_best_route(
-            city=city,
-            massif=massif,
-            level=level,
             randomness=randomness,
-            departure_datetime=departure_datetime,
-            return_datetime=return_datetime
+            city=city,
+            departure_time=departure_datetime,
+            return_time=return_datetime,
+            level=level
         )
         save_geojson(geojson)
-
+        print("Ca pasee")
         self.stdout.write(self.style.SUCCESS("✅ Itinéraire optimisé généré avec succès"))

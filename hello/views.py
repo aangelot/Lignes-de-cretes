@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from django.http import JsonResponse
-from hello.services.trouver_chemin import compute_best_route, save_geojson
+from hello.services.trouver_chemin_2 import compute_best_route, save_geojson
 
 def index(request):
     return render(request, "hello/index.html")
@@ -9,12 +9,10 @@ def get_route(request):
     if request.method == "GET":
         try:
             city = request.GET.get("city", "Lyon")
-            massif = request.GET.get("massif", "Chartreuse")
             level = request.GET.get("level", "debutant")
             randomness_str = request.GET.get("randomness", "0.3")
             departure_datetime = request.GET.get("departure_datetime")
             return_datetime = request.GET.get("return_datetime")
-
             # Conversion du paramètre randomness
             try:
                 randomness = float(randomness_str)
@@ -24,13 +22,13 @@ def get_route(request):
                 randomness = 0.3
 
             # Appel à la logique métier avec les nouveaux paramètres
+            print(f"Appel get_route avec city={city}, level={level}, randomness={randomness}, departure_datetime={departure_datetime}, return_datetime={return_datetime}")  
             geojson_data = compute_best_route(
-                city=city,
-                massif=massif,
-                level=level,
                 randomness=randomness,
-                departure_datetime=departure_datetime,
-                return_datetime=return_datetime
+                city=city,
+                departure_time=departure_datetime,
+                return_time=return_datetime,
+                level=level,
             )
 
             # Sauvegarde facultative

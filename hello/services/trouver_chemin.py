@@ -30,6 +30,7 @@ def get_transit_directions(origin, destination, departure_time):
             "routingPreference": "FEWER_TRANSFERS"
         }
     }
+    print(headers, body)
     r = requests.post(url, headers=headers, json=body)
     data = r.json()
     return data
