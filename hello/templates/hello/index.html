@@ -23,12 +23,6 @@
                 <!-- D'autres villes à ajouter plus tard -->
             </select>
 
-            <label for="massif">Massif :</label>
-            <select id="massif" name="massif">
-                <option value="chartreuse" selected>Chartreuse</option>
-                <!-- D'autres massifs à ajouter plus tard -->
-            </select>
-
             <label for="departure_datetime">Date et heure de départ :</label>
             <input type="datetime-local" id="departure_datetime" name="departure_datetime" required>
 
@@ -93,13 +87,12 @@
         submitBtn.textContent = 'Calcul en cours…';
 
         const city = document.getElementById('city').value;
-        const massif = document.getElementById('massif').value;
         const level = document.getElementById('level').value;
         const randomness = document.getElementById('randomness').value;
         const departure_datetime = document.getElementById('departure_datetime').value;
         const return_datetime = document.getElementById('return_datetime').value;
 
-        const url = `/get_route/?city=${encodeURIComponent(city)}&massif=${encodeURIComponent(massif)}&level=${encodeURIComponent(level)}&randomness=${encodeURIComponent(randomness)}&departure_datetime=${encodeURIComponent(departure_datetime)}&return_datetime=${encodeURIComponent(return_datetime)}`;
+        const url = `/get_route/?city=${encodeURIComponent(city)}&level=${encodeURIComponent(level)}&randomness=${encodeURIComponent(randomness)}&departure_datetime=${encodeURIComponent(departure_datetime)}&return_datetime=${encodeURIComponent(return_datetime)}`;
         
         fetch(url)
             .then(response => {
