@@ -74,44 +74,6 @@ gdf_paths["distance_meters_normalized"] = scaler.fit_transform(gdf_paths[["dista
 gdf_paths = gdf_paths.drop(columns=["randonnabilite_score"])
 gdf_paths = gdf_paths.drop(columns=["poi_score_total"])
 
-def remove_dead_ends_from_gdf(gdf):
-    """
-    Supprime les segments qui correspondent à des impasses dans le GeoDataFrame.
-    """
-    # Construire un graphe NetworkX
-    G = nx.Graph()
-    for idx, row in gdf.iterrows():
-        geom = row.geometry
-        if geom is None or geom.is_empty:
-            continue
-        coords = list(geom.coords)
-        for i in range(len(coords) - 1):
-            u = coords[i]
-            v = coords[i+1]
-            # Stocker la ligne complète comme attribut
-            G.add_edge(u, v, idx=idx, geometry=LineString([u, v]))
-    
-    # Supprimer les impasses
-    removed = True
-    while removed:
-        removed = False
-        # Ne pas supprimer les nœuds isolés qui appartiennent à plus d'une arête
-        to_remove = [n for n in G.nodes if G.degree[n] == 1]
-        if to_remove:
-            G.remove_nodes_from(to_remove)
-            removed = True
-
-    # Reconstruire le GeoDataFrame filtré
-    keep_idxs = set()
-    for u, v, data in G.edges(data=True):
-        keep_idxs.add(data['idx'])
-
-    gdf_filtered = gdf.loc[list(keep_idxs)].copy()
-    return gdf_filtered
-
-# Avant de sauvegarder
-gdf_paths = remove_dead_ends_from_gdf(gdf_paths)
-
 # Reprojeter en WGS84 si tu veux revenir à exploitable en front
 gdf_paths = gdf_paths.to_crs(epsg=4326)
 
