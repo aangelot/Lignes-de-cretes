@@ -1,5 +1,4 @@
 import geopandas as gpd
-import pandas as pd
 import networkx as nx
 import pickle
 from shapely.geometry import Point, LineString
@@ -7,11 +6,9 @@ from scipy.spatial import KDTree
 import numpy as np
 import json
 import os
-from shapely.ops import transform
 from pyproj import Geod
 
 # === Chargement des fichiers ===
-
 paths_fp = "data/output/chartreuse_hiking_paths_with_poi_scores.geojson"
 stops_fp = "data/output/chartreuse_scores_final.geojson"
 
@@ -19,13 +16,10 @@ paths = gpd.read_file(paths_fp)
 stops = gpd.read_file(stops_fp)
 
 # === Construction du graphe ===
-
 geod = Geod(ellps="WGS84")
-
 G = nx.Graph()
 
 def segment_length_m(p1, p2):
-    """Calcule la distance en mètres entre deux points (lon, lat)"""
     _, _, distance = geod.inv(p1[0], p1[1], p2[0], p2[1])
     return distance
 
@@ -44,28 +38,21 @@ for idx, feature in paths.iterrows():
         pt2 = tuple(coords[i + 1])
 
         length = segment_length_m(pt1, pt2)
-
         if length == 0 or length > MAX_SEGMENT_LENGTH:
-            continue  # on ignore les artefacts
+            continue
 
-        # Proportion du score pour ce segment
-        score = total_score 
-
+        score = total_score
         if G.has_edge(pt1, pt2):
-            # On conserve le score le plus élevé
             if G[pt1][pt2]['score'] < score:
                 G[pt1][pt2].update({'score': score, 'length': length})
         else:
             G.add_edge(pt1, pt2, score=score, length=length)
 
-print(f"✅ Graphe proprement construit : {G.number_of_nodes()} nœuds, {G.number_of_edges()} arêtes.")
+print(f"✅ Graphe construit : {G.number_of_nodes()} nœuds, {G.number_of_edges()} arêtes.")
 
-# === Association des arrêts de transport aux nœuds du graphe avec KDTree ===
-
+# === Association des arrêts de transport aux nœuds du graphe ===
 graph_nodes = list(G.nodes)
-node_coords = np.array(graph_nodes)  # format : [[lon, lat], ...]
-
-# Création de l’arbre KDTree
+node_coords = np.array(graph_nodes)
 tree = KDTree(node_coords)
 
 stop_nodes = {}
@@ -81,13 +68,29 @@ for idx, stop in stops.iterrows():
         'properties': stop.drop(labels='geometry').to_dict()
     }
 
-print(f"✅ {len(stop_nodes)} arrêts associés à un nœud du graphe (via KDTree).")
+print(f"✅ {len(stop_nodes)} arrêts associés à un nœud du graphe.")
 
-# === Sauvegarde des résultats ===
+# === Suppression des impasses ===
+def remove_dead_ends(G, protected_nodes=None):
+    """Supprime les nœuds de degré 1 sauf ceux protégés."""
+    if protected_nodes is None:
+        protected_nodes = set()
+    removed = True
+    while removed:
+        removed = False
+        to_remove = [n for n in G.nodes if G.degree[n] == 1 and n not in protected_nodes]
+        if to_remove:
+            G.remove_nodes_from(to_remove)
+            removed = True
+    return G
 
+G = remove_dead_ends(G)
+
+print(f"✅ Après suppression des impasses : {G.number_of_nodes()} nœuds, {G.number_of_edges()} arêtes.")
+
+# === Sauvegarde des résultats (pickle + JSON) ===
 output_dir = "data/output"
 os.makedirs(output_dir, exist_ok=True)
-
 graph_path = os.path.join(output_dir, "hiking_graph.gpickle")
 stops_path = os.path.join(output_dir, "stop_node_mapping.json")
 
@@ -99,3 +102,4 @@ with open(stops_path, "w") as f:
 
 print(f"✅ Graphe sauvegardé dans : {graph_path}")
 print(f"✅ Correspondance arrêts-nœuds sauvegardée dans : {stops_path}")
+
