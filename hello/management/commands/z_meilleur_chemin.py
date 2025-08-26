@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from hello.services.trouver_chemin_2 import compute_best_route, save_geojson
+from hello.services.trouver_chemin import compute_best_route, save_geojson
 
 class Command(BaseCommand):
     help = "Calcule le meilleur chemin optimisé"
