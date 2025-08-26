@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from django.http import JsonResponse
-from hello.services.trouver_chemin_2 import compute_best_route, save_geojson
+from hello.services.trouver_chemin import compute_best_route, save_geojson
 
 def index(request):
     return render(request, "hello/index.html")
