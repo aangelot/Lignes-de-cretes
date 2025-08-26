@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, time
 import os
 from dotenv import load_dotenv
 from typing import Tuple, Dict, Any, List
-from networkx import shortest_path
+from networkx import shortest_path, path_weight
 from shapely.geometry import LineString, mapping
 from zoneinfo import ZoneInfo
 
@@ -158,9 +158,8 @@ def compute_max_hiking_distance(departure_time: datetime,
     if nb_days == 1:
         distance_max_m = distance_day1
     else:
-        # jour 1 + jours intermédiaires + dernier jour - distance pour rejoindre l'arrêt
-        distance_max_m = distance_day1 + dist_per_day * (nb_days - 2) + distance_last_day - distance_to_transit_stop
-
+        # jour 1 + jours intermédiaires + dernier jour - distance pour rejoindre l'arrêt aller et retour
+        distance_max_m = distance_day1 + dist_per_day * (nb_days - 2) + distance_last_day - distance_to_transit_stop * 2 
     return distance_max_m
 
 # ---- Calcul de l'itinéraire ----
@@ -222,7 +221,7 @@ def save_geojson(data, output_path="data/paths/optimized_routes.geojson"):
         print(f"✅ GeoJSON sauvegardé dans {output_path}")
 
 # ---- Calcul du retour en transport en commun ----
-def compute_return_transit(path, return_time: datetime, city: str):
+def compute_return_transit(path, best_dist, return_time: datetime, city: str):
     """
     Calcule le trajet retour en transport en commun depuis le dernier point du path jusqu'à la ville.
     Ajoute également la marche jusqu'au premier arrêt de TC dans le path.
@@ -303,10 +302,12 @@ def compute_return_transit(path, return_time: datetime, city: str):
         raise RuntimeError("Impossible de trouver les noeuds du graphe pour la marche finale.")
 
     sp_nodes = shortest_path(G, source=start_node, target=end_node, weight="length")
+    sp_distance = path_weight(G, sp_nodes, weight="length") 
+    best_dist += sp_distance
 
     augmented_path = path + sp_nodes
 
-    return augmented_path, return_transit_route
+    return augmented_path, return_transit_route, best_dist
 
 # ---- Fonction principale combinée ----
 def compute_best_route(randomness=0.2, city="Lyon", departure_time: datetime = None, return_time: datetime = None, level: str = "intermediaire"):
@@ -334,7 +335,7 @@ def compute_best_route(randomness=0.2, city="Lyon", departure_time: datetime = N
     # --- Étape 4 : Lancer la recherche du meilleur chemin de randonnée ---
     path, score, dist, G = best_hiking_path(graph_path, start_coord=(transit_end[1], transit_end[0]), max_distance_m=max_distance_m, k=50)
     # --- Étape 5 : Calculer l'itinéraire retour en transport en commun ---
-    path, travel_return = compute_return_transit(path, return_time, city)
+    path, travel_return, dist = compute_return_transit(path, dist, return_time, city)
     # --- Étape 6 : Construire la Feature GeoJSON ---
     start_coord = path[0]
     end_coord = path[-1]
