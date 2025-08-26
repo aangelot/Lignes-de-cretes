@@ -118,9 +118,40 @@
                 }).addTo(map);
 
                 map.fitBounds(currentLayer.getBounds());
+
+                const props = data.features[0].properties;
+                const distKm = (props.path_length / 1000).toFixed(1); // conversion m → km
+
+                // 👉 Ajout du paragraphe sur la distance
+                container.innerHTML += `<p><strong>Distance du parcours :</strong> ${distKm} km</p>`;
                
                 function afficherTransit(transitData, titre) {
-                container.innerHTML += `<h2>${titre}</h2>`;
+
+                // 👉 On cherche le premier step en TRANSIT pour récupérer l'heure
+                let firstTransitStep = null;
+                for (const leg of transitData.routes[0].legs) {
+                    for (const step of leg.steps) {
+                        if (step.travelMode === "TRANSIT") {
+                            firstTransitStep = step;
+                            break;
+                        }
+                    }
+                    if (firstTransitStep) break;
+                }
+
+                let dateStr = "";
+                if (firstTransitStep) {
+                    const depTimeObj = new Date(firstTransitStep.transitDetails.stopDetails.departureTime);
+                    dateStr = depTimeObj.toLocaleDateString("fr-FR", {
+                        weekday: "long",
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric"
+                    });
+                }
+
+                // 👉 On affiche le titre avec la date
+                container.innerHTML += `<h2>${titre}${dateStr ? " – " + dateStr : ""}</h2>`;
                 transitData.routes.forEach(route => {
                     route.legs.forEach(leg => {
                     leg.steps.forEach(step => {
