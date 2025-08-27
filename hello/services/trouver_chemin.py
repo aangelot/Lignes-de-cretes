@@ -107,10 +107,10 @@ def compute_max_hiking_distance(departure_time: datetime,
     """
 
     level_distance_map = {
-        'debutant': 10_000,
-        'intermediaire': 20_000,
-        'avance': 30_000,
-        'expert': 50_000
+        'debutant': 8_000,
+        'intermediaire': 16_000,
+        'avance': 25_000,
+        'expert': 40_000
     }
 
     if level not in level_distance_map:
@@ -305,8 +305,20 @@ def compute_return_transit(path, best_dist, return_time: datetime, city: str):
     sp_distance = path_weight(G, sp_nodes, weight="length") 
     best_dist += sp_distance
 
-    augmented_path = path + sp_nodes
+    def remove_loops(coords):
+        seen = {}
+        new_coords = []
+        for i, node in enumerate(coords):
+            if node in seen:
+                # on a trouvé une boucle → on supprime tout ce qui est entre les deux
+                loop_start = seen[node]
+                new_coords = new_coords[:loop_start+1]
+            else:
+                seen[node] = len(new_coords)
+                new_coords.append(node)
+        return new_coords
 
+    augmented_path = remove_loops(path + sp_nodes)
     return augmented_path, return_transit_route, best_dist
 
 # ---- Fonction principale combinée ----
