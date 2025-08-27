@@ -9,45 +9,48 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     {% load static %}
     <link rel="stylesheet" type="text/css" href="{% static 'hello/site.css' %}" />
+    <link rel="icon" href="{% static 'hello/favicon.png' %}" type="image/x-icon">
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 </head>
 <body>
 <div class="container">
     <div class="sidebar">
-        <h2>Hike Planner</h2>
-        <form id="trek-form" method="get">
-            <label for="city">Ville de départ :</label>
-            <select id="city" name="city">
-                <option value="Lyon" selected>Lyon</option>
-                <!-- D'autres villes à ajouter plus tard -->
-            </select>
+        <h2>Lignes de crêtes</h2>
+        <div class="form-wrapper">
+            <form id="trek-form" method="get">
+                <label for="city">Ville de départ :</label>
+                <select id="city" name="city">
+                    <option value="Lyon" selected>Lyon</option>
+                    <!-- D'autres villes à ajouter plus tard -->
+                </select>
 
-            <label for="departure_datetime">Date et heure de départ :</label>
-            <input type="datetime-local" id="departure_datetime" name="departure_datetime" required>
+                <label for="departure_datetime">Date et heure de départ :</label>
+                <input type="datetime-local" id="departure_datetime" name="departure_datetime" required>
 
-            <label for="return_datetime">Date et heure de retour :</label>
-            <input type="datetime-local" id="return_datetime" name="return_datetime" required>
+                <label for="return_datetime">Date et heure de retour :</label>
+                <input type="datetime-local" id="return_datetime" name="return_datetime" required>
 
+                <label for="level">Niveau :</label>
+                <select id="level" name="level">
+                    <option value="debutant">&lt; 10 km (Débutant)</option>
+                    <option value="intermediaire">10–20 km (Intermédiaire)</option>
+                    <option value="avance">20–30 km (Avancé)</option>
+                    <option value="expert">&gt; 30 km (Expert)</option>
+                </select>
 
-            <label for="level">Niveau :</label>
-            <select id="level" name="level">
-                <option value="debutant">&lt; 10 km (Débutant)</option>
-                <option value="intermediaire">10–20 km (Intermédiaire)</option>
-                <option value="avance">20–30 km (Avancé)</option>
-                <option value="expert">&gt; 30 km (Expert)</option>
-            </select>
+                <label for="randomness">Aléatoire (randomness) : <span id="randomness-value">0.30</span></label>
+                <input type="range" id="randomness" name="randomness" min="0" max="1" step="0.01" value="0.3" />
 
-            <label for="randomness">Aléatoire (randomness) : <span id="randomness-value">0.30</span></label>
-            <input type="range" id="randomness" name="randomness" min="0" max="1" step="0.01" value="0.3" />
-            <!-- suppression de l'attribut oninput ici -->
+                <button type="submit" id="submit-btn">Trouver mon trek</button>
+            </form>
+        </div>
 
-            <button type="submit" id="submit-btn">Trouver mon trek</button>
-        </form>
+        <hr class="divider">
 
         <div id="transit-info"></div>
-
     </div>
+
     <div class="map-container">
         <div id="map"></div>
     </div>

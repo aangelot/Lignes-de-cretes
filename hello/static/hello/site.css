@@ -1,6 +1,11 @@
+/* Import des polices */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@600&family=Roboto&display=swap');
+
 body {
     margin: 0;
-    font-family: sans-serif;
+    font-family: 'Roboto', sans-serif;
+    background-color: #19191e;
+    color: #ffffff;
 }
 
 .container {
@@ -8,14 +13,105 @@ body {
     height: 100vh;
 }
 
+/* Sidebar */
 .sidebar {
     width: 25%;
-    padding: 1em;
-    background-color: #f8f9fa;
+    padding: 2em 1.5em;
+    background-color: #19191e;
     box-sizing: border-box;
-    border-right: 1px solid #ccc;
+    border-right: 1px solid #333;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
 }
 
+.sidebar h2 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.8em;
+    margin-bottom: 1em;
+    color: #ef8409;
+}
+
+.form-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75em;
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75em;
+}
+
+label {
+    font-weight: 500;
+    font-size: 0.9em;
+    color: #ffffff;
+}
+
+input[type="datetime-local"],
+select,
+input[type="range"] {
+    padding: 0.6em 0.8em;
+    font-size: 0.95em;
+    border-radius: 6px;
+    border: 1px solid #333;
+    background-color: #19191e;
+    color: #ffffff;
+    outline: none;
+    transition: all 0.2s ease-in-out;
+}
+
+input[type="datetime-local"]:focus,
+select:focus,
+input[type="range"]:focus {
+    border-color: #ef8409;
+    box-shadow: 0 0 5px rgba(239, 132, 9, 0.5);
+}
+
+input[type="range"] {
+    padding: 0;
+}
+
+/* Boutons */
+button {
+    padding: 0.7em;
+    font-size: 1em;
+    background-color: #ef8409;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+button:hover {
+    background-color: #d97307;
+}
+
+/* Divider */
+.divider {
+    border: none;
+    border-top: 1px solid #333;
+    margin: 1.5em 0;
+}
+
+/* Bloc transit info */
+#transit-info {
+    font-size: 0.9em;
+    line-height: 1.5;
+    color: #ffffff;
+    overflow-y: auto;
+    max-height: 40vh;
+}
+
+#transit-info p {
+    margin: 0.5em 0;
+}
+
+/* Map */
 .map-container {
     flex: 1;
 }
@@ -23,28 +119,37 @@ body {
 #map {
     width: 100%;
     height: 100%;
+    border-left: 1px solid #333;
 }
 
-form {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5em;
+/* Scrollbar custom (optionnel) */
+.sidebar::-webkit-scrollbar {
+    width: 8px;
 }
 
-input[type="text"] {
-    padding: 0.5em;
-    font-size: 1em;
+.sidebar::-webkit-scrollbar-thumb {
+    background-color: #ef8409;
+    border-radius: 4px;
 }
 
-button {
-    padding: 0.5em;
-    font-size: 1em;
-    background-color: #007bff;
-    color: white;
-    border: none;
-    cursor: pointer;
+.sidebar::-webkit-scrollbar-track {
+    background-color: #19191e;
 }
 
-button:hover {
-    background-color: #0056b3;
+/* Responsive */
+@media (max-width: 900px) {
+    .container {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid #333;
+    }
+
+    #map {
+        height: 60vh;
+    }
 }
