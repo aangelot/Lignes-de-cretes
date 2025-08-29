@@ -47,6 +47,7 @@
         </div>
 
         <hr class="divider">
+        <a href="google.com"> Bonjour !</a>
 
         <div id="transit-info"></div>
     </div>
@@ -179,6 +180,44 @@
                     });
                     });
                 });
+
+                // 👉 Construction du lien Google Maps avec coordonnées
+                if (transitData.routes.length > 0) {
+                    const firstLeg = transitData.routes[0].legs[0];
+                    const lastLeg = transitData.routes[0].legs[transitData.routes[0].legs.length - 1];
+
+                    let firstCoords = null;
+                    let lastCoords = null;
+
+                    // récupération du premier arrêt en transport en commun
+                    for (const step of firstLeg.steps) {
+                        if (step.travelMode === "TRANSIT") {
+                            const loc = step.transitDetails.stopDetails.departureStop.location.latLng;
+                            firstCoords = `${loc.latitude},${loc.longitude}`;
+                            break;
+                        }
+                    }
+
+                    // récupération du dernier arrêt en transport en commun
+                    for (let i = lastLeg.steps.length - 1; i >= 0; i--) {
+                        const step = lastLeg.steps[i];
+                        if (step.travelMode === "TRANSIT") {
+                            const loc = step.transitDetails.stopDetails.arrivalStop.location.latLng;
+                            lastCoords = `${loc.latitude},${loc.longitude}`;
+                            break;
+                        }
+                    }
+
+                    if (firstCoords && lastCoords) {
+                        const gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(firstCoords)}&destination=${encodeURIComponent(lastCoords)}&travelmode=transit&hl=fr`;
+
+                        container.innerHTML += `
+                        <button class="gmaps-btn" onclick="window.open('${gmapsUrl}', '_blank')">
+                            Autres itinéraires sur Google Maps
+                        </button>
+`;
+                    }
+                }
                 container.innerHTML += `<hr>`;
                 }
 
