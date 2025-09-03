@@ -5,14 +5,22 @@
     <title>Lignes de Crêtes</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- Leaflet CSS and JS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     {% load static %}
+
+    <!-- Styles principaux -->
     <link rel="stylesheet" type="text/css" href="{% static 'hello/site.css' %}" />
     <link rel="icon" href="{% static 'hello/favicon.png' %}" type="image/x-icon">
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
+    <!-- Leaflet CSS et JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="{% static 'hello/leaflet.polylineDecorator.js' %}"></script>
+
+    <!-- Leaflet Heightgraph CSS et JS -->
+    <link rel="stylesheet" href="{% static 'hello/L.Control.Heightgraph.min.css' %}" />
+    <script src="{% static 'hello/L.Control.Heightgraph.min.js' %}"></script>
 </head>
+
 <body>
 <div class="container">
     <div class="sidebar">
@@ -66,211 +74,6 @@
 <div id="path-data" data-coords='{{ path|escapejs }}'></div>
 {% endif %}
 
-<script>
-    // Initialisation de la carte
-    const map = L.map('map').setView([45.36, 5.79], 12);
-
-    // Fonds de carte disponibles
-    const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-    });
-
-    const satellite = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-        maxZoom: 20,
-        subdomains: ['mt0','mt1','mt2','mt3'],
-        attribution: '&copy; <a href="https://www.google.com/earth/">Google</a>'
-    });
-
-    const topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-        maxZoom: 17,
-        attribution: 'Map data: &copy; <a href="https://www.opentopomap.org/">OpenTopoMap</a>, &copy; OpenStreetMap contributors'
-    });
-
-    // Ajouter le fond par défaut (OSM)
-    osm.addTo(map);
-
-    // Contrôle pour basculer entre les fonds
-    const baseMaps = {
-        "OSM": osm,
-        "Satellite": satellite,
-        "OpenTopoMap": topo
-    };
-
-    L.control.layers(baseMaps).addTo(map);
-
-    let currentLayer = null;
-
-    document.addEventListener('DOMContentLoaded', () => {
-        // Synchroniser l'affichage du slider au chargement
-        const slider = document.getElementById('randomness');
-        const display = document.getElementById('randomness-value');
-        display.textContent = slider.value;
-
-        // Mise à jour dynamique quand on bouge le slider
-        slider.addEventListener('input', () => {
-            display.textContent = slider.value;
-        });
-    });
-
-    document.getElementById('trek-form').addEventListener('submit', function (e) {
-        e.preventDefault();
-
-        const submitBtn = document.getElementById('submit-btn');
-        submitBtn.disabled = true;
-        const originalBtnText = submitBtn.textContent;
-        submitBtn.textContent = 'Calcul en cours…';
-
-        const city = document.getElementById('city').value;
-        const level = document.getElementById('level').value;
-        const randomness = document.getElementById('randomness').value;
-        const departure_datetime = document.getElementById('departure_datetime').value;
-        const return_datetime = document.getElementById('return_datetime').value;
-
-        const url = `/get_route/?city=${encodeURIComponent(city)}&level=${encodeURIComponent(level)}&randomness=${encodeURIComponent(randomness)}&departure_datetime=${encodeURIComponent(departure_datetime)}&return_datetime=${encodeURIComponent(return_datetime)}`;
-        
-        fetch(url)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Erreur lors de la récupération du tracé');
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (currentLayer) {
-                    map.removeLayer(currentLayer);
-                }
-                const container = document.getElementById('transit-info');
-                container.innerHTML = "";
-
-                if (!data.features || data.features.length === 0) {
-                    container.innerHTML = "<p style='color:red;'>Désolé, aucun itinéraire n'a été trouvé, veuillez réessayer.</p>";
-                    return; // on sort pour ne pas essayer d'afficher une couche vide
-                }
-
-                currentLayer = L.geoJSON(data, {
-                    style: { color: 'blue' }
-                }).addTo(map);
-
-                map.fitBounds(currentLayer.getBounds());
-
-                const props = data.features[0].properties;
-                const distKm = (props.path_length / 1000).toFixed(1); // conversion m → km
-
-                // 👉 Ajout du paragraphe sur la distance
-                container.innerHTML += `<p><strong>Distance du parcours :</strong> ${distKm} km</p>`;
-               
-                function afficherTransit(transitData, titre) {
-
-                // 👉 On cherche le premier step en TRANSIT pour récupérer l'heure
-                let firstTransitStep = null;
-                for (const leg of transitData.routes[0].legs) {
-                    for (const step of leg.steps) {
-                        if (step.travelMode === "TRANSIT") {
-                            firstTransitStep = step;
-                            break;
-                        }
-                    }
-                    if (firstTransitStep) break;
-                }
-
-                let dateStr = "";
-                if (firstTransitStep) {
-                    const depTimeObj = new Date(firstTransitStep.transitDetails.stopDetails.departureTime);
-                    dateStr = depTimeObj.toLocaleDateString("fr-FR", {
-                        weekday: "long",
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric"
-                    });
-                }
-
-                // 👉 On affiche le titre avec la date
-                container.innerHTML += `<h2>${titre}${dateStr ? " – " + dateStr : ""}</h2>`;
-                transitData.routes.forEach(route => {
-                    route.legs.forEach(leg => {
-                    leg.steps.forEach(step => {
-                        if (step.travelMode === "TRANSIT") {
-                        const t = step.transitDetails;
-                        const depStop = t.stopDetails.departureStop.name;
-                        const arrStop = t.stopDetails.arrivalStop.name;
-                        const depTime = new Date(t.stopDetails.departureTime).toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'});
-                        const arrTime = new Date(t.stopDetails.arrivalTime).toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'});
-                        const line = t.transitLine.nameShort + " " + t.transitLine.name;
-                        const vehicle = t.transitLine.vehicle.name.text;
-                        const headsign = t.headsign;
-                        const link = t.transitLine.agencies[0].uri;
-
-                        container.innerHTML += `
-                            <p>
-                            Prendre le ${vehicle} ${line} à ${depStop} à ${depTime}, direction ${headsign}, arrivée à ${arrStop} à ${arrTime}. 
-                            Plus d'informations sur le <a href="${link}" target="_blank">site de l'agence</a>.
-                            </p>
-                        `;
-                        }
-                    });
-                    });
-                });
-
-                // 👉 Construction du lien Google Maps avec coordonnées
-                if (transitData.routes.length > 0) {
-                    const firstLeg = transitData.routes[0].legs[0];
-                    const lastLeg = transitData.routes[0].legs[transitData.routes[0].legs.length - 1];
-
-                    let firstCoords = null;
-                    let lastCoords = null;
-
-                    // récupération du premier arrêt en transport en commun
-                    for (const step of firstLeg.steps) {
-                        if (step.travelMode === "TRANSIT") {
-                            const loc = step.transitDetails.stopDetails.departureStop.location.latLng;
-                            firstCoords = `${loc.latitude},${loc.longitude}`;
-                            break;
-                        }
-                    }
-
-                    // récupération du dernier arrêt en transport en commun
-                    for (let i = lastLeg.steps.length - 1; i >= 0; i--) {
-                        const step = lastLeg.steps[i];
-                        if (step.travelMode === "TRANSIT") {
-                            const loc = step.transitDetails.stopDetails.arrivalStop.location.latLng;
-                            lastCoords = `${loc.latitude},${loc.longitude}`;
-                            break;
-                        }
-                    }
-
-                    if (firstCoords && lastCoords) {
-                        const gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(firstCoords)}&destination=${encodeURIComponent(lastCoords)}&travelmode=transit&hl=fr`;
-
-                        container.innerHTML += `
-                        <button class="gmaps-btn" onclick="window.open('${gmapsUrl}', '_blank')">
-                            Autres itinéraires sur Google Maps
-                        </button>
-`;
-                    }
-                }
-                container.innerHTML += `<hr>`;
-                }
-
-                // Affichage de l'aller
-                data.features.forEach(feature => {
-                if (feature.properties.transit_go) {
-                    afficherTransit(feature.properties.transit_go, "Aller");
-                }
-                if (feature.properties.transit_back) {
-                    afficherTransit(feature.properties.transit_back, "Retour");
-                }
-                });
-            })
-            .catch(error => {
-                alert(error.message);
-                console.error(error);
-            })
-            .finally(() => {
-                // Fin du calcul
-                submitBtn.disabled = false;
-                submitBtn.textContent = originalBtnText;
-            });
-    });
-</script>
+<script src="{% static 'hello/index.js' %}"></script>
 </body>
 </html>
