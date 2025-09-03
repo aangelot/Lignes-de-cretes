@@ -132,6 +132,34 @@ button:hover {
     border-left: 1px solid #333;
 }
 
+/* Style du contrôleur de couches Leaflet */
+.leaflet-control-layers {
+    background-color: #19191e !important;  /* fond sombre */
+    color: #ffffff !important;             /* texte blanc */
+    border: 1px solid #333 !important;     /* bord discret */
+    border-radius: 6px;
+    font-size: 0.9em;
+    font-family: 'Roboto', sans-serif;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+}
+
+/* Les entrées de la liste */
+.leaflet-control-layers-list label {
+    color: #cccccc !important;             /* texte gris clair */
+    cursor: pointer;
+}
+
+/* Texte au survol */
+.leaflet-control-layers-list label:hover {
+    color: #ffffff !important;
+}
+
+/* Case à cocher personnalisée */
+.leaflet-control-layers-selector {
+    accent-color: #ef8409; /* orange comme tes boutons */
+}
+
+
 /* Scrollbar custom (optionnel) */
 .sidebar::-webkit-scrollbar {
     width: 8px;
