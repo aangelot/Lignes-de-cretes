@@ -221,7 +221,7 @@ def save_geojson(data, output_path="data/paths/optimized_routes.geojson"):
         print(f"✅ GeoJSON sauvegardé dans {output_path}")
 
 # ---- Calcul du retour en transport en commun ----
-def compute_return_transit(path, best_dist, return_time: datetime, city: str):
+def compute_return_transit(path, return_time: datetime, city: str):
     """
     Calcule le trajet retour en transport en commun depuis le dernier point du path jusqu'à la ville.
     Ajoute également la marche jusqu'au premier arrêt de TC dans le path.
@@ -302,8 +302,6 @@ def compute_return_transit(path, best_dist, return_time: datetime, city: str):
         raise RuntimeError("Impossible de trouver les noeuds du graphe pour la marche finale.")
 
     sp_nodes = shortest_path(G, source=start_node, target=end_node, weight="length")
-    sp_distance = path_weight(G, sp_nodes, weight="length") 
-    best_dist += sp_distance
 
     def remove_loops(coords):
         seen = {}
@@ -319,7 +317,49 @@ def compute_return_transit(path, best_dist, return_time: datetime, city: str):
         return new_coords
 
     augmented_path = remove_loops(path + sp_nodes)
+    best_dist = path_weight(G, augmented_path, weight="length") 
+
     return augmented_path, return_transit_route, best_dist
+
+def get_elevations(path):
+    """
+    Récupère les altitudes depuis l'API Open-Elevation.
+    path : liste de tuples (lon, lat)
+    """
+    locations = [{"latitude": lat, "longitude": lon} for lon, lat in path]
+    url = "https://api.open-elevation.com/api/v1/lookup"
+    response = requests.post(url, json={"locations": locations})
+    response.raise_for_status()
+    results = response.json()["results"]
+    elevations = [pt["elevation"] for pt in results]
+    return elevations
+
+def smooth_elevations(elevations, window=3):
+    """
+    Lisse les altitudes avec une moyenne mobile.
+    window : taille de la fenêtre de lissage (impair recommandé)
+    """
+    smoothed = []
+    n = len(elevations)
+    half_window = window // 2
+    for i in range(n):
+        start = max(0, i - half_window)
+        end = min(n, i + half_window + 1)
+        smoothed.append(sum(elevations[start:end]) / (end - start))
+    return smoothed
+
+def compute_total_ascent(elevations, min_diff=2):
+    """
+    Calcule le dénivelé positif total.
+    min_diff : variation minimale à prendre en compte pour éviter le bruit
+    """
+    total_ascent = 0
+    for i in range(1, len(elevations)):
+        delta = elevations[i] - elevations[i-1]
+        if delta > min_diff:
+            total_ascent += delta
+    return round(total_ascent)
+
 
 # ---- Fonction principale combinée ----
 def compute_best_route(randomness=0.2, city="Lyon", departure_time: datetime = None, return_time: datetime = None, level: str = "intermediaire"):
@@ -347,7 +387,20 @@ def compute_best_route(randomness=0.2, city="Lyon", departure_time: datetime = N
     # --- Étape 4 : Lancer la recherche du meilleur chemin de randonnée ---
     path, score, dist, G = best_hiking_path(graph_path, start_coord=(transit_end[1], transit_end[0]), max_distance_m=max_distance_m, k=50)
     # --- Étape 5 : Calculer l'itinéraire retour en transport en commun ---
-    path, travel_return, dist = compute_return_transit(path, dist, return_time, city)
+    path, travel_return, dist = compute_return_transit(path, return_time, city)
+    print(path, dist)
+    # --- Etape 5b : Récupérer les élévations ---
+    elevations = get_elevations(path)
+    smoothed_elevations = smooth_elevations(elevations, window=10)  # window à ajuster selon la densité des points
+    total_ascent = compute_total_ascent(smoothed_elevations)
+
+    # Ajouter les élévations au GeoJSON
+    path = [
+        [lon, lat, round(ele)] for (lon, lat), ele in zip(path, smoothed_elevations)
+    ]
+
+    print("Élévations lissées :", smoothed_elevations)
+    print("Dénivelé positif total :", total_ascent)
     # --- Étape 6 : Construire la Feature GeoJSON ---
     start_coord = path[0]
     end_coord = path[-1]
@@ -361,7 +414,8 @@ def compute_best_route(randomness=0.2, city="Lyon", departure_time: datetime = N
             "path_score": score,
             "path_length": dist,
             "transit_go": travel_go,
-            "transit_back": travel_return
+            "transit_back": travel_return,
+            "path_elevation": total_ascent
         }
     }
 
