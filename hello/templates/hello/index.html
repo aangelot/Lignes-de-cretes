@@ -67,11 +67,36 @@
 {% endif %}
 
 <script>
+    // Initialisation de la carte
     const map = L.map('map').setView([45.36, 5.79], 12);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // Fonds de carte disponibles
+    const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
+    });
+
+    const satellite = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+        maxZoom: 20,
+        subdomains: ['mt0','mt1','mt2','mt3'],
+        attribution: '&copy; <a href="https://www.google.com/earth/">Google</a>'
+    });
+
+    const topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+        maxZoom: 17,
+        attribution: 'Map data: &copy; <a href="https://www.opentopomap.org/">OpenTopoMap</a>, &copy; OpenStreetMap contributors'
+    });
+
+    // Ajouter le fond par défaut (OSM)
+    osm.addTo(map);
+
+    // Contrôle pour basculer entre les fonds
+    const baseMaps = {
+        "OSM": osm,
+        "Satellite": satellite,
+        "OpenTopoMap": topo
+    };
+
+    L.control.layers(baseMaps).addTo(map);
 
     let currentLayer = null;
 
