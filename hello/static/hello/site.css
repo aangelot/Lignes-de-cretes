@@ -123,13 +123,54 @@ button:hover {
 
 /* Map */
 .map-container {
-    flex: 1;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100vh; /* toute la hauteur de l’écran */
 }
 
 #map {
-    width: 100%;
-    height: 100%;
-    border-left: 1px solid #333;
+  height: 80%;
+  width: 100%;
+  border-left: 1px solid #333;
+}
+
+#elevation-div {
+  height: 20%;
+  width: 100%;
+  background-color: #19191e;
+  color: #ef8409; /* couleur du texte (ex: labels distance/altitude) */
+}
+
+.elevation-control .background {
+  background-color: var(--ele-bg, #19191e);
+  overflow: visible;
+  display: block;
+  touch-action: none;
+  user-select: none;
+  max-width: 100%;
+}
+
+.elevation-expanded {
+  --ele-toggle-size: 0;
+}
+
+.steelblue-theme {
+  --ele-axis: #19191e;
+  --ele-area: #ef8409;
+  --ele-brush: rgba(23, 74, 117, 0.4);
+  --ele-line: #ef8409;
+}
+
+.elevation-control .axis text, .elevation-control .legend text, .elevation-control .point text{
+  font-family: 'Roboto', sans-serif;
+  fill: #ffffff;       /* couleur du texte SVG */
+  text-shadow: none;   /* suppression de l’ombre blanche */
+  stroke: none;
+}
+
+.elevation-summary.inline-summary {
+  display: none;
 }
 
 /* Style du contrôleur de couches Leaflet */

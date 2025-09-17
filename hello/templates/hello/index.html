@@ -7,10 +7,6 @@
 
     {% load static %}
 
-    <!-- Styles principaux -->
-    <link rel="stylesheet" type="text/css" href="{% static 'hello/site.css' %}" />
-    <link rel="icon" href="{% static 'hello/favicon.png' %}" type="image/x-icon">
-
     <!-- Leaflet CSS et JS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -19,6 +15,16 @@
     <!-- Leaflet Heightgraph CSS et JS -->
     <link rel="stylesheet" href="{% static 'hello/L.Control.Heightgraph.min.css' %}" />
     <script src="{% static 'hello/L.Control.Heightgraph.min.js' %}"></script>
+
+    <!-- Leaflet elevation -->
+    <link rel="stylesheet" href="https://unpkg.com/@raruto/leaflet-elevation/dist/leaflet-elevation.css" />
+    <script src="https://unpkg.com/@raruto/leaflet-elevation/dist/leaflet-elevation.js"></script>
+
+    <!-- Styles principaux -->
+    <link rel="stylesheet" type="text/css" href="{% static 'hello/site.css' %}" />
+    <link rel="icon" href="{% static 'hello/favicon.png' %}" type="image/x-icon">
+
+
 </head>
 
 <body>
@@ -67,6 +73,7 @@
 
     <div class="map-container">
         <div id="map"></div>
+        <div id="elevation-div"></div>
     </div>
 </div>
 

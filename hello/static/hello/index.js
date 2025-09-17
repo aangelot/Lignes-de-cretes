@@ -33,6 +33,25 @@ document.addEventListener('DOMContentLoaded', () => {
         display.textContent = slider.value;
     });
 
+    // Création du contrôle elevation
+    const controlElevation = L.control.elevation({
+        elevationDiv: "#elevation-div",
+        theme: "steelblue-theme",   // on garde ce thème de base, on le surchargera en CSS
+        width: 600,
+        height: 180,
+        collapsed: false,
+        followMarker: true,
+        autofitBounds: true,
+
+        // Masquer les durées (on ne veut que les distances)
+        time: false,   
+        waypoints: false,
+        speed: false,
+        altitude: true,
+        distance: true
+    }).addTo(map);
+
+
     // === Soumission du formulaire ===
     document.getElementById('trek-form').addEventListener('submit', async function (e) {
         e.preventDefault();
@@ -74,6 +93,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     opacity: 0.9
                 }
             }).addTo(map);
+
+            // On envoie les données au plugin
+            controlElevation.addData(data);
 
             // Parcourir chaque polyligne
             currentLayer.eachLayer(layer => {
