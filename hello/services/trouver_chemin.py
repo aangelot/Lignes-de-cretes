@@ -388,7 +388,7 @@ def compute_best_route(randomness=0.2, city="Lyon", departure_time: datetime = N
     path, score, dist, G = best_hiking_path(graph_path, start_coord=(transit_end[1], transit_end[0]), max_distance_m=max_distance_m, k=50)
     # --- Étape 5 : Calculer l'itinéraire retour en transport en commun ---
     path, travel_return, dist = compute_return_transit(path, return_time, city)
-    print(path, dist)
+
     # --- Etape 5b : Récupérer les élévations ---
     elevations = get_elevations(path)
     smoothed_elevations = smooth_elevations(elevations, window=10)  # window à ajuster selon la densité des points
