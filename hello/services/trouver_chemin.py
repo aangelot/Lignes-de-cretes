@@ -3,6 +3,7 @@ import json
 from heapq import heappush, nlargest
 import random
 import requests
+import time
 from datetime import datetime, timedelta, time
 import os
 from dotenv import load_dotenv
@@ -83,6 +84,7 @@ def get_best_transit_route(randomness=0.3, city="Lyon", departure_time: datetime
             if "routes" in data and len(data["routes"]) > 0:
                 return data  # succès
         except Exception as e:
+            time.sleep(1) 
             print(f"⚠️ Tentative échouée pour l'arrêt {stop_id} ({score_final:.3f}): {e}")
             continue
 
@@ -113,7 +115,6 @@ def compute_max_hiking_distance(departure_time: datetime,
         'avance': 25_000,
         'expert': 40_000
     }
-
     if level not in level_distance_map:
         raise ValueError(f"Niveau inconnu: {level}")
 
@@ -130,7 +131,6 @@ def compute_max_hiking_distance(departure_time: datetime,
     # Heure d'arrivée du transport pour le jour 1
     steps = transit_route["routes"][0]["legs"][0]["steps"]
     transit_steps = [s for s in steps if s["travelMode"] == "TRANSIT"]
-    
     if transit_steps:
         last_transit = transit_steps[-1]
         arrival_str = last_transit["transitDetails"]["stopDetails"]["arrivalTime"]
@@ -372,7 +372,6 @@ def compute_best_route(randomness=0.2, city="Lyon", departure_time: datetime = N
         file_path = os.path.join(settings.BASE_DIR, "data/paths/optimized_routes_example.geojson")
         with open(file_path, "r", encoding="utf-8") as f:
             return json.load(f)
-
     departure_time = datetime.fromisoformat(departure_time)
     return_time = datetime.fromisoformat(return_time)
     # --- Étape 1 : Récupérer l'itinéraire de transport en commun ---
@@ -400,7 +399,6 @@ def compute_best_route(randomness=0.2, city="Lyon", departure_time: datetime = N
     elevations = get_elevations(path)
     smoothed_elevations = smooth_elevations(elevations, window=10)  # window à ajuster selon la densité des points
     total_ascent = compute_total_ascent(smoothed_elevations)
-
     # Ajouter les élévations au GeoJSON
     path = [
         [lon, lat, round(ele)] for (lon, lat), ele in zip(path, smoothed_elevations)
