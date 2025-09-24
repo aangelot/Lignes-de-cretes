@@ -25,6 +25,7 @@ SECRET_KEY = 'django-insecure-%-*ld^51tnr8(1cly--lu+cxy*_pbu6*e5wb$+ro%b!*wlohc%
 
 DEBUG = True
 USE_MOCK_DATA = False
+USE_MOCK_ROUTE_CREATION = False
 
 ALLOWED_HOSTS = []
 

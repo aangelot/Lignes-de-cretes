@@ -51,6 +51,28 @@ def get_best_transit_route(randomness=0.3, city="Lyon", departure_time: datetime
     # Trier par score décroissant
     scored_stops.sort(reverse=True, key=lambda x: x[0])    
 
+    # --- Mode mock : charger le fichier et adapter le point de départ ---
+    if getattr(settings, "USE_MOCK_ROUTE_CREATION", False):
+        best_stop_info = scored_stops[0][2]
+        dest_coords = best_stop_info["node"]  # (lon, lat)
+
+        file_path = os.path.join(settings.BASE_DIR, "data/paths/optimized_routes_example.geojson")
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        # Modifier transit_go 
+        if "transit_go" in data["features"][0]["properties"]:
+            leg = data["features"][0]["properties"]["transit_go"]["routes"][0]["legs"][0]
+            # chercher le dernier step qui est en TRANSIT
+            transit_steps = [s for s in leg["steps"] if s["travelMode"] == "TRANSIT"]
+            if transit_steps:
+                last_step = transit_steps[-1]
+                last_step["endLocation"]["latLng"] = {"latitude": dest_coords[1], "longitude": dest_coords[0]}
+                last_step["transitDetails"]["stopDetails"]["arrivalTime"] = (departure_time + timedelta(minutes=120)).isoformat()
+            leg["duration"] = "7200s"  # 2 heures en secondes
+        return data["features"][0]["properties"]["transit_go"]
+    
+
     if city not in city_hubs:
         raise ValueError(f"Ville {city} non trouvée dans city_hubs.json")
 
@@ -262,31 +284,54 @@ def compute_return_transit(path, return_time: datetime, city: str):
         city_coords = city_hubs[city]["coords"]
         destination = {"location": {"latLng": {"latitude": city_coords[0], "longitude": city_coords[1]}}}
 
-        url = "https://routes.googleapis.com/directions/v2:computeRoutes"
-        headers = {
-            "Content-Type": "application/json",
-            "X-Goog-Api-Key": GOOGLE_MAPS_API_KEY,
-            "X-Goog-FieldMask": "*",
-        }
-        body = {
-            "origin": origin,
-            "destination": destination,
-            "travelMode": "TRANSIT",
-            "arrivalTime": return_time.replace(tzinfo=ZoneInfo("Europe/Paris")).isoformat(),
-            "transitPreferences": {"routingPreference": "FEWER_TRANSFERS"}
-        }
+        if getattr(settings, "USE_MOCK_ROUTE_CREATION", False):
+            file_path = os.path.join(settings.BASE_DIR, "data/paths/optimized_routes_example.geojson")
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
 
-        r = requests.post(url, headers=headers, json=body)
-        if r.status_code == 200:
-            resp = r.json()
-            with open("data/paths/return.json", "w", encoding="utf-8") as f:
-                json.dump(resp, f, ensure_ascii=False, indent=2)
-            steps = resp.get("routes", [{}])[0].get("legs", [{}])[0].get("steps", [])
-            transit_steps = [s for s in steps if s["travelMode"] == "TRANSIT"]
-            if transit_steps:
-                return_transit_route = resp
-                first_step_start = transit_steps[0]["startLocation"]["latLng"]
-                break
+            travel_back = data["features"][0]["properties"].get("transit_back")
+            if travel_back:
+                leg = travel_back["routes"][0]["legs"][0]
+                # dernier step en TRANSIT → endLocation = city coords
+                transit_steps = [s for s in leg["steps"] if s["travelMode"] == "TRANSIT"]
+                if transit_steps:
+                    first_step = transit_steps[0]
+                    last_step = transit_steps[-1]
+                    # Premier step startLocation = dernier point du path
+                    first_step["startLocation"]["latLng"] = {"latitude": last_point[1], "longitude": last_point[0]}
+                    # Dernier step endLocation = coordonnées de la ville
+                    city_coords = city_hubs[city]["coords"]
+                    last_step["endLocation"]["latLng"] = {"latitude": city_coords[0], "longitude": city_coords[1]}
+                    # Ajuster arrivalTime du dernier step
+                    last_step["transitDetails"]["stopDetails"]["arrivalTime"] = return_time.isoformat()
+                # Ajuster duration du leg
+                leg["duration"] = "7200s"
+            resp = travel_back
+        else:
+            url = "https://routes.googleapis.com/directions/v2:computeRoutes"
+            headers = {
+                "Content-Type": "application/json",
+                "X-Goog-Api-Key": GOOGLE_MAPS_API_KEY,
+                "X-Goog-FieldMask": "*",
+            }
+            body = {
+                "origin": origin,
+                "destination": destination,
+                "travelMode": "TRANSIT",
+                "arrivalTime": return_time.replace(tzinfo=ZoneInfo("Europe/Paris")).isoformat(),
+                "transitPreferences": {"routingPreference": "FEWER_TRANSFERS"}
+            }
+
+            r = requests.post(url, headers=headers, json=body)
+            if r.status_code == 200:
+                resp = r.json()
+
+        steps = resp.get("routes", [{}])[0].get("legs", [{}])[0].get("steps", [])
+        transit_steps = [s for s in steps if s["travelMode"] == "TRANSIT"]
+        if transit_steps:
+            return_transit_route = resp
+            first_step_start = transit_steps[0]["startLocation"]["latLng"]
+            break
 
     if return_transit_route is None:
         raise RuntimeError("Impossible de trouver un itinéraire retour en transport en commun.")
@@ -386,6 +431,7 @@ def compute_best_route(randomness=0.2, city="Lyon", departure_time: datetime = N
             end_lat = last_transit["endLocation"]["latLng"]["latitude"]
             end_lon = last_transit["endLocation"]["latLng"]["longitude"]
             transit_end = (end_lon, end_lat)  # (lon, lat)
+            print(transit_end)
     if transit_end is None:
         raise RuntimeError("Impossible de déterminer le point de départ de la randonnée depuis l'itinéraire TC.")
     # --- Étape 3 : Calculer la distance maximale de randonnée ---
@@ -404,8 +450,6 @@ def compute_best_route(randomness=0.2, city="Lyon", departure_time: datetime = N
         [lon, lat, round(ele)] for (lon, lat), ele in zip(path, smoothed_elevations)
     ]
 
-    print("Élévations lissées :", smoothed_elevations)
-    print("Dénivelé positif total :", total_ascent)
     # --- Étape 6 : Construire la Feature GeoJSON ---
     start_coord = path[0]
     end_coord = path[-1]
