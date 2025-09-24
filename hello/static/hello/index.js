@@ -6,13 +6,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors'
     });
-
     const satellite = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
         maxZoom: 20,
         subdomains: ['mt0','mt1','mt2','mt3'],
         attribution: '&copy; <a href="https://www.google.com/earth/">Google</a>'
     });
-
     const topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
         maxZoom: 17,
         attribution: 'Map data: &copy; <a href="https://www.opentopomap.org/">OpenTopoMap</a>, &copy; OpenStreetMap contributors'
@@ -23,9 +21,35 @@ document.addEventListener('DOMContentLoaded', () => {
     const baseMaps = { "OSM": osm, "Satellite": satellite, "OpenTopoMap": topo };
     L.control.layers(baseMaps).addTo(map);
 
+    // === Variables globales pour gestion des overlays ===
     let currentLayer = null;
+    let startMarker = null;
+    let endMarker = null;
+    let arrowDecorator = null;
+    let controlElevation = null;
 
-    // === Gestion du slider ===
+    const elevationOptions = {
+        elevationDiv: "#elevation-div",
+        theme: "steelblue-theme",
+        width: 600,
+        height: 180,
+        collapsed: false,
+        followMarker: true,
+        autofitBounds: true,
+        time: false,
+        waypoints: false,
+        speed: false,
+        altitude: true,
+        distance: true
+    };
+
+    // Initialisation du contrôle elevation
+    function initElevationControl() {
+        controlElevation = L.control.elevation(elevationOptions).addTo(map);
+    }
+    initElevationControl();
+
+    // Slider randomness
     const slider = document.getElementById('randomness');
     const display = document.getElementById('randomness-value');
     display.textContent = slider.value;
@@ -33,24 +57,23 @@ document.addEventListener('DOMContentLoaded', () => {
         display.textContent = slider.value;
     });
 
-    // Création du contrôle elevation
-    const controlElevation = L.control.elevation({
-        elevationDiv: "#elevation-div",
-        theme: "steelblue-theme",   // on garde ce thème de base, on le surchargera en CSS
-        width: 600,
-        height: 180,
-        collapsed: false,
-        followMarker: true,
-        autofitBounds: true,
+    // === Fonction pour nettoyer la carte ===
+    function clearMapOverlays() {
+        if (currentLayer) { map.removeLayer(currentLayer); currentLayer = null; }
+        if (startMarker) { map.removeLayer(startMarker); startMarker = null; }
+        if (endMarker) { map.removeLayer(endMarker); endMarker = null; }
+        if (arrowDecorator) { map.removeLayer(arrowDecorator); arrowDecorator = null; }
+    }
 
-        // Masquer les durées (on ne veut que les distances)
-        time: false,   
-        waypoints: false,
-        speed: false,
-        altitude: true,
-        distance: true
-    }).addTo(map);
-
+    // === Fonction pour reset l’elevation control ===
+    function resetElevationControl() {
+        if (controlElevation && typeof controlElevation.remove === "function") {
+            map.removeControl(controlElevation);
+        }
+        const elevDiv = document.querySelector("#elevation-div");
+        if (elevDiv) elevDiv.innerHTML = "";
+        initElevationControl();
+    }
 
     // === Soumission du formulaire ===
     document.getElementById('trek-form').addEventListener('submit', async function (e) {
@@ -60,6 +83,9 @@ document.addEventListener('DOMContentLoaded', () => {
         submitBtn.disabled = true;
         const originalBtnText = submitBtn.textContent;
         submitBtn.textContent = 'Calcul en cours…';
+
+        clearMapOverlays();
+        resetElevationControl();
 
         const city = document.getElementById('city').value;
         const level = document.getElementById('level').value;
@@ -72,36 +98,27 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch(url);
             if (!response.ok) throw new Error('Erreur lors de la récupération du tracé');
-
             const data = await response.json();
+
             const container = document.getElementById('transit-info');
             container.innerHTML = "";
-
 
             if (!data.features || data.features.length === 0) {
                 container.innerHTML = "<p style='color:red;'>Désolé, aucun itinéraire n'a été trouvé, veuillez réessayer.</p>";
                 return;
             }
 
-            // Supprimer l’ancienne couche si existante
-            if (currentLayer) map.removeLayer(currentLayer);
-
+            // Ajouter GeoJSON sur la carte
             currentLayer = L.geoJSON(data, {
-                style: {
-                    color: '#ef8409',
-                    weight: 4,
-                    opacity: 0.9
-                }
+                style: { color: '#ef8409', weight: 4, opacity: 0.9 }
             }).addTo(map);
 
-            // On envoie les données au plugin
+            // Ajouter au plugin elevation
             controlElevation.addData(data);
 
-            // Parcourir chaque polyligne
+            // Ajouter markers et flèches
             currentLayer.eachLayer(layer => {
                 const coords = layer.getLatLngs();
-
-                // Marqueurs départ / arrivée
                 const startIcon = L.icon({
                     iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png",
                     iconSize: [25, 41],
@@ -117,40 +134,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png"
                 });
 
-                L.marker(coords[0], { icon: startIcon }).addTo(map).bindPopup("Départ");
-                L.marker(coords[coords.length - 1], { icon: endIcon }).addTo(map).bindPopup("Arrivée");
+                startMarker = L.marker(coords[0], { icon: startIcon }).addTo(map).bindPopup("Départ");
+                endMarker = L.marker(coords[coords.length-1], { icon: endIcon }).addTo(map).bindPopup("Arrivée");
 
-                // Flèches de direction
                 if (L.PolylineDecorator) {
-                    const arrowDecorator = L.polylineDecorator(layer, {
+                    arrowDecorator = L.polylineDecorator(layer, {
                         patterns: [{
                             offset: 25,
                             repeat: 250,
-                            symbol: L.Symbol.arrowHead({
-                                pixelSize: 12,
-                                polygon: true,
-                                pathOptions: { color: '#ef8409', fillOpacity: 1, weight: 2 }
-                            })
+                            symbol: L.Symbol.arrowHead({ pixelSize: 12, polygon: true, pathOptions: { color: '#ef8409', fillOpacity:1, weight:2 }})
                         }]
-                    });
-                    arrowDecorator.addTo(map);
+                    }).addTo(map);
                 }
             });
 
             map.fitBounds(currentLayer.getBounds());
 
-            // Affichage de la distance
+            // Affichage distance et dénivelé
             const props = data.features[0].properties;
             const distKm = (props.path_length / 1000).toFixed(1);
-            container.innerHTML += `<p><strong>Distance du parcours :</strong> ${distKm} km</p>`;
-            // Dénivelé positif en mètres
-            if (props.path_elevation !== undefined) {
-                container.innerHTML += `<p><strong>Dénivelé positif :</strong> ${props.path_elevation} m</p>`;
-            } else {
-                container.innerHTML += `<p><strong>Dénivelé positif :</strong> N/A</p>`;
-            }
+            container.innerHTML += `<p><strong>Distance :</strong> ${distKm} km</p>`;
+            container.innerHTML += `<p><strong>Dénivelé positif :</strong> ${props.path_elevation ?? 'N/A'} m</p>`;
 
-            // === Affichage transit ===
+            // === Affichage transit (inchangé) ===
             function afficherTransit(transitData, titre) {
                 let firstTransitStep = null;
                 for (const leg of transitData.routes[0].legs) {
@@ -195,7 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 });
 
-                // Lien Google Maps
+                // Lien Google Maps (inchangé)
                 if (transitData.routes.length > 0) {
                     const firstLeg = transitData.routes[0].legs[0];
                     const lastLeg = transitData.routes[0].legs[transitData.routes[0].legs.length - 1];
@@ -232,15 +238,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 container.innerHTML += `<hr>`;
             }
 
-            // Aller / Retour
+
             data.features.forEach(feature => {
                 if (feature.properties.transit_go) afficherTransit(feature.properties.transit_go, "Aller");
                 if (feature.properties.transit_back) afficherTransit(feature.properties.transit_back, "Retour");
             });
 
-        } catch (error) {
-            alert(error.message);
-            console.error(error);
+        } catch (err) {
+            alert(err.message);
+            console.error(err);
         } finally {
             submitBtn.disabled = false;
             submitBtn.textContent = originalBtnText;
