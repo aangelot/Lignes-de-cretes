@@ -58,5 +58,4 @@ class Command(BaseCommand):
             level=level
         )
         save_geojson(geojson)
-        print("Ca pasee")
         self.stdout.write(self.style.SUCCESS("✅ Itinéraire optimisé généré avec succès"))
