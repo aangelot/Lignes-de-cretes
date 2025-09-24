@@ -10,6 +10,7 @@ from typing import Tuple, Dict, Any, List
 from networkx import shortest_path, path_weight
 from shapely.geometry import LineString, mapping
 from zoneinfo import ZoneInfo
+from django.conf import settings
 
 # ---- Chargement des données ----
 load_dotenv()
@@ -366,6 +367,12 @@ def compute_best_route(randomness=0.2, city="Lyon", departure_time: datetime = N
     """
     Planifie une randonnée en utilisant le meilleur itinéraire en transport .replace(tzinfo=None)en commun pour atteindre le départ.
     """
+
+    if getattr(settings, "USE_MOCK_DATA", False):
+        file_path = os.path.join(settings.BASE_DIR, "data/paths/optimized_routes_example.geojson")
+        with open(file_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+
     departure_time = datetime.fromisoformat(departure_time)
     return_time = datetime.fromisoformat(return_time)
     # --- Étape 1 : Récupérer l'itinéraire de transport en commun ---
