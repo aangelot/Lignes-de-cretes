@@ -414,7 +414,7 @@ def compute_return_transit(path, return_time: datetime, city: str):
                 seen[node] = len(new_coords)
                 new_coords.append(node)
         return new_coords
-    augmented_path = path + sp_nodes[:-1]
+    augmented_path = path + sp_nodes[1:]
     # best_dist = path_weight(G, augmented_path, weight="length") 
     best_dist = sum(G[u][v]["length"] for u, v in zip(augmented_path[:-1], augmented_path[1:]))
     print(f"Distance totale avec marche finale : {best_dist/1000:.1f} km")
