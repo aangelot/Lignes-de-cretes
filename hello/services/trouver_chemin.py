@@ -8,10 +8,11 @@ from datetime import datetime, timedelta, time
 import os
 from dotenv import load_dotenv
 from typing import Tuple, Dict, Any, List
-from networkx import shortest_path, path_weight
+from networkx import shortest_path, path_weight, NetworkXNoPath
 from shapely.geometry import LineString, mapping
 from zoneinfo import ZoneInfo
 from django.conf import settings
+import math
 
 # ---- Chargement des données ----
 load_dotenv()
@@ -19,6 +20,7 @@ GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_API_KEY")
 stops_path = "data/output/stop_node_mapping.json"
 graph_path = "data/output/hiking_graph.gpickle"
 city_hubs_path = "data/output/city_hubs.json"
+poi_file="data/output/poi_scores.geojson"
 
 with open(stops_path, "r", encoding="utf-8") as f:
     stops_data = json.load(f)
@@ -26,9 +28,10 @@ with open(graph_path, "rb") as f:
     G = pickle.load(f)
 with open(city_hubs_path, "r", encoding="utf-8") as f:
     city_hubs = json.load(f)
+with open(poi_file, "r", encoding="utf-8") as f:
+    poi_data = json.load(f)
 
 # ---- Calcul du point de départ ----
-
 
 def get_best_transit_route(randomness=0.3, city="Lyon", departure_time: datetime = None):
     """
@@ -199,43 +202,96 @@ def haversine(coord1, coord2):
 def find_nearest_node(G, coord):
     return min(G.nodes, key=lambda n: haversine(coord, (n[1], n[0])))
 
-def best_hiking_path(graph_path, start_coord, max_distance_m, k=50):
+def edge_cost(u, v, d):
+    return d["length"] / (d.get("score", 0) + 1e-6)
+
+def angle_between(p1, p2, p3):
+    """Calcule l'angle en radians entre les vecteurs (p1->p2) et (p2->p3)."""
+    v1 = (p2[0] - p1[0], p2[1] - p1[1])
+    v2 = (p3[0] - p2[0], p3[1] - p2[1])
+    dot = v1[0]*v2[0] + v1[1]*v2[1]
+    norm1 = math.sqrt(v1[0]**2 + v1[1]**2)
+    norm2 = math.sqrt(v2[0]**2 + v2[1]**2)
+    if norm1 == 0 or norm2 == 0:
+        return 0
+    cos_theta = dot / (norm1 * norm2)
+    return max(-1.0, min(1.0, cos_theta))  # borne pour stabilité numérique
+
+def best_hiking_path(start_coord, max_distance_m):
     """
-    Cherche un chemin maximisant le score total sous la distance max,
-    version optimisée pour grands graphes avec suppression des impasses.
+    Cherche un chemin maximisant score/distance réelle,
+    avec contraintes : évite revisites, pénalise angles obtus,
+    et consomme la distance max autant que possible.
     """
 
-    start_node = find_nearest_node(G, start_coord)
+    pois = []
+    for feat in poi_data["features"]:
+        coord = tuple(feat["geometry"]["coordinates"])  # (lon, lat)
+        pois.append({
+            "id": feat["properties"]["titre"],
+            "coord": coord,
+            "score": feat["properties"].get("score", 0.0)
+        })
 
-    # Heap de candidats : (-score, distance, chemin)
-    candidates = [(-0.0, 0.0, (start_node,))]
-    best_path, best_score, best_dist = (start_node,), 0.0, 0.0
+    # Initialisation
+    current_coord = find_nearest_node(G, start_coord)
+    best_path = [current_coord]
+    best_dist = 0.0
+    visited_pois = []
 
-    while candidates:
-        new_candidates = []
-        for neg_score, dist, path in candidates:
-            current = path[-1]
-            for neighbor in G.neighbors(current):
-                if neighbor in path:
+    # Boucle principale
+    while best_dist <= max_distance_m - 5000:  # garder marge 5km
+        # 1. POI candidats dans un rayon (5km puis fallback 10km)
+        radius_m = 5000
+        candidates = []
+        while not candidates and radius_m <= 10000:
+            for poi in pois:
+                if poi["id"] in visited_pois:
                     continue
-                edge_data = G[current][neighbor]
-                if isinstance(edge_data, dict) and 0 in edge_data:
-                    edge_data = edge_data[0]
-                length = edge_data.get("length", 0.0)
-                edge_score = edge_data.get("score", 0.0)
-                new_dist = dist + length
-                if new_dist > max_distance_m:
-                    continue
-                new_score = -neg_score + edge_score
-                new_path = path + (neighbor,)
-                heappush(new_candidates, (-new_score, new_dist, new_path))
-                if new_score > best_score or (new_score == best_score and new_dist > best_dist):
-                    best_path, best_score, best_dist = new_path, new_score, new_dist
+                d = haversine(current_coord[::-1], poi["coord"][::-1])
+                if d <= radius_m:
+                    candidates.append(poi)
+            if not candidates:
+                radius_m *= 2
 
-        # Conserver uniquement les k meilleurs candidats
-        candidates = nlargest(k, new_candidates, key=lambda x: -x[0])
+        if not candidates:
+            break  # plus de POI accessibles
+        # 2. Garder les 3 meilleurs POI par score
+        top_pois = sorted(candidates, key=lambda p: p["score"], reverse=True)[:3]
+        # 3. Calculer score/distance avec angle
+        best_ratio, best_choice = -1, None
+        for poi in top_pois:
+            poi_node = find_nearest_node(G, poi["coord"][::-1])
+            try:
+                path_nodes = shortest_path(G, current_coord, poi_node, weight=edge_cost)
+                path_length = sum(G[u][v]["length"] for u, v in zip(path_nodes[:-1], path_nodes[1:]))
+            except NetworkXNoPath:
+                continue
 
-    return best_path, best_score, best_dist, G
+            # Angle avec les deux derniers POI
+            if len(visited_pois) >= 2:
+                last = pois[[p["id"] for p in pois].index(visited_pois[-1])]["coord"]
+                prev = pois[[p["id"] for p in pois].index(visited_pois[-2])]["coord"]
+                cos_theta = angle_between(prev, last, poi["coord"])
+            else:
+                cos_theta = 0
+
+            ratio = (poi["score"] + cos_theta) / path_length
+            if ratio > best_ratio:
+                best_ratio = ratio
+                best_choice = (path_nodes, path_length, poi)
+
+        if not best_choice:
+            break
+
+        # 4. Mettre à jour chemin
+        path_nodes, path_length, poi = best_choice
+        best_path.extend(path_nodes[1:])
+        best_dist += path_length
+        current_coord = path_nodes[-1]
+        visited_pois.append(poi["id"])
+        print(f"Ajout POI {poi['id']} (score {poi['score']:.2f}), distance totale {best_dist/1000:.1f} km")
+    return best_path, best_dist
 
 def save_geojson(data, output_path="data/paths/optimized_routes.geojson"):
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -265,7 +321,6 @@ def compute_return_transit(path, return_time: datetime, city: str):
         path = list(path)
 
     last_point = path[-1]  # (lon, lat)
-
     # --- Trier les arrêts par distance au dernier point ---
     stops_list = []
     for stop_id, stop in stops_data.items():
@@ -343,12 +398,10 @@ def compute_return_transit(path, return_time: datetime, city: str):
 
     start_node = find_nearest_node(G, start_coord)
     end_node = find_nearest_node(G, end_coord)
-
     if start_node is None or end_node is None:
         raise RuntimeError("Impossible de trouver les noeuds du graphe pour la marche finale.")
 
     sp_nodes = shortest_path(G, source=start_node, target=end_node, weight="length")
-
     def remove_loops(coords):
         seen = {}
         new_coords = []
@@ -361,10 +414,10 @@ def compute_return_transit(path, return_time: datetime, city: str):
                 seen[node] = len(new_coords)
                 new_coords.append(node)
         return new_coords
-
-    augmented_path = remove_loops(path + sp_nodes)
-    best_dist = path_weight(G, augmented_path, weight="length") 
-
+    augmented_path = path + sp_nodes[:-1]
+    # best_dist = path_weight(G, augmented_path, weight="length") 
+    best_dist = sum(G[u][v]["length"] for u, v in zip(augmented_path[:-1], augmented_path[1:]))
+    print(f"Distance totale avec marche finale : {best_dist/1000:.1f} km")
     return augmented_path, return_transit_route, best_dist
 
 def get_elevations(path):
@@ -431,13 +484,14 @@ def compute_best_route(randomness=0.2, city="Lyon", departure_time: datetime = N
             end_lat = last_transit["endLocation"]["latLng"]["latitude"]
             end_lon = last_transit["endLocation"]["latLng"]["longitude"]
             transit_end = (end_lon, end_lat)  # (lon, lat)
-            print(transit_end)
     if transit_end is None:
         raise RuntimeError("Impossible de déterminer le point de départ de la randonnée depuis l'itinéraire TC.")
     # --- Étape 3 : Calculer la distance maximale de randonnée ---
     max_distance_m = compute_max_hiking_distance(departure_time, return_time, level, travel_go)
+    print(f"Distance maximale de randonnée estimée : {max_distance_m/1000:.1f} km")
     # --- Étape 4 : Lancer la recherche du meilleur chemin de randonnée ---
-    path, score, dist, G = best_hiking_path(graph_path, start_coord=(transit_end[1], transit_end[0]), max_distance_m=max_distance_m, k=50)
+    path, dist = best_hiking_path(start_coord=(transit_end[1], transit_end[0]), max_distance_m=max_distance_m)
+    print(f"Distance de randonnée planifiée : {dist/1000:.1f} km")
     # --- Étape 5 : Calculer l'itinéraire retour en transport en commun ---
     path, travel_return, dist = compute_return_transit(path, return_time, city)
 
@@ -460,7 +514,6 @@ def compute_best_route(randomness=0.2, city="Lyon", departure_time: datetime = N
         "properties": {
             "start_coord": start_coord,
             "end_coord": end_coord,
-            "path_score": score,
             "path_length": dist,
             "transit_go": travel_go,
             "transit_back": travel_return,
@@ -477,12 +530,13 @@ if __name__ == "__main__":
     # Exemple de paramètres
     randomness = 0.3
     city = "Lyon"
-    departure_time = datetime(2025, 8, 26, 8, 0)   # Départ 8h
-    return_time = datetime(2025, 8, 26, 20, 0)     # Retour 20h
+    departure_time = "2025-08-26T08:00:00"
+    return_time = "2025-08-26T20:00:00"
     level = "intermediaire"
     k = 50
     graph_path = "data/output/hiking_graph.gpickle"
-
+    if not settings.configured:
+        settings.configure(USE_MOCK_DATA=False, USE_MOCK_ROUTE_CREATION=True, BASE_DIR=os.path.dirname(os.path.abspath(__file__)))
     try:
         result = compute_best_route(
             randomness=randomness,
@@ -490,8 +544,6 @@ if __name__ == "__main__":
             departure_time=departure_time,
             return_time=return_time,
             level=level,
-            k=k,
-            graph_path=graph_path
         )
 
         print("=== Résultat ===")
