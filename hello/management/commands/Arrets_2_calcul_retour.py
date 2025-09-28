@@ -1,28 +1,46 @@
+# Arrets_2_calcul_retour.py
+import sys
 import geopandas as gpd
 import requests
 from dotenv import load_dotenv
 import os
 from datetime import datetime, timedelta
 import time
+from utils import slugify
 
-# Charger la clé API depuis le fichier .env
+# Args
+if len(sys.argv) < 3:
+    print("Usage: python Arrets_2_calcul_retour.py <massif> <ville>")
+    sys.exit(1)
+
+massif, ville = sys.argv[1], sys.argv[2]
+
+# API
 load_dotenv()
 API_KEY = os.getenv("GOOGLE_API_KEY")
 
-# Coordonnées de Lyon Part-Dieu
-destination = {"latitude": 45.7601, "longitude": 4.8599}
+# Charger la gare de départ depuis le JSON
+import json
+with open("data/input/gares_departs.json", "r", encoding="utf-8") as f:
+    gares = json.load(f)
 
-# Charger les arrêts depuis le fichier existant
-gdf = gpd.read_file("data/intermediate/chartreuse_scores.geojson")
+if ville not in gares:
+    print(f"❌ Ville {ville} non trouvée dans gares_departs.json")
+    sys.exit(1)
 
-# Heure de départ : dimanche prochain à 14h (UTC)
+destination = gares[ville]
+
+# Charger les arrêts intermédiaires
+input_path = f"data/intermediate/{slugify(massif)}__{slugify(ville)}_arrets.geojson"
+gdf = gpd.read_file(input_path)
+
+# Heure de départ retour : dimanche prochain à 14h
 now = datetime.now()
 days_ahead = (6 - now.weekday()) % 7  # 6 = dimanche
 sunday = now + timedelta(days=days_ahead)
 departure_time = datetime.combine(sunday.date(), datetime.strptime("14:00", "%H:%M").time())
 departure_time_utc = departure_time.astimezone().isoformat()
 
-# Fonction pour interroger l’API Google Directions
 def get_transit_duration(origin, destination):
     url = "https://routes.googleapis.com/directions/v2:computeRoutes"
     headers = {
@@ -43,7 +61,6 @@ def get_transit_duration(origin, destination):
     if response.status_code == 200:
         try:
             duration_str = response.json()["routes"][0]["duration"]
-            # Conversion vers minutes
             if "s" in duration_str:
                 return int(int(duration_str.replace("s", "")) / 60)
             elif duration_str.startswith("PT"):
@@ -63,7 +80,7 @@ def get_transit_duration(origin, destination):
         print(f"Erreur API {response.status_code}: {response.text}")
         return None
 
-# Calculer la durée retour
+# Calculer les durées retour
 durations_back = []
 for idx, row in gdf.iterrows():
     lat, lon = row.geometry.y, row.geometry.x
@@ -71,12 +88,13 @@ for idx, row in gdf.iterrows():
     print(f"⏳ Retour depuis ({lat}, {lon})...")
     duration = get_transit_duration(origin, destination)
     durations_back.append(duration)
-    time.sleep(0.1)  # limiter les requêtes
+    time.sleep(0.1)
 
-# Ajouter la colonne et filtrer
 gdf["duration_min_back"] = durations_back
 gdf = gdf[gdf["duration_min_back"].notnull()]
 
-# Sauvegarder dans le même fichier
-gdf.to_file("data/intermediate/chartreuse_scores.geojson", driver="GeoJSON")
-print("✅ Fichier mis à jour : data/intermediate/chartreuse_scores.geojson")
+# Sauvegarde (même fichier que Arrets_1)
+output_path = f"data/intermediate/{slugify(massif)}__{slugify(ville)}_arrets.geojson"
+gdf.to_file(output_path, driver="GeoJSON")
+
+print(f"✅ Fichier mis à jour : {output_path}")
