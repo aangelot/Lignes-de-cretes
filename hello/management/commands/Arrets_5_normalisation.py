@@ -25,7 +25,7 @@ def normalize_scores(massif: str, ville: str):
         gdf[f"{col}_normalized"] = normalized_values[:, i]
 
     # Fichier de sortie
-    file_path_output = f"data/output/{slugify(massif)}__{slugify(ville)}_final.geojson"
+    file_path_output = f"data/output/{slugify(massif)}_{slugify(ville)}_final.geojson"
     gdf.to_file(file_path_output, driver="GeoJSON")
 
     print(f"✅ Fichier mis à jour avec colonnes normalisées : {file_path_output}")
