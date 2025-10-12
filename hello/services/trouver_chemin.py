@@ -13,37 +13,15 @@ from shapely.geometry import LineString, mapping
 from zoneinfo import ZoneInfo
 from django.conf import settings
 import math
+from hello.management.commands.utils import slugify
 
 # ---- Chargement des données ----
 load_dotenv()
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_API_KEY")  
 
-stops_path = "data/output/chartreuse_stop_node_mapping.json"
-graph_path = "data/output/chartreuse_hiking_graph.gpickle"
-gares_path = "data/input/gares_departs.json"
-poi_file = "data/output/chartreuse_poi_scores.geojson"
-
-# Vérification des fichiers
-for path in [stops_path, graph_path, gares_path, poi_file]:
-    if not os.path.exists(path):
-        raise FileNotFoundError(f"❌ Fichier introuvable : {path}")
-
-# Chargement des données
-with open(stops_path, "r", encoding="utf-8") as f:
-    stops_data = json.load(f)
-
-with open(graph_path, "rb") as f:
-    G = pickle.load(f)
-
-with open(gares_path, "r", encoding="utf-8") as f:
-    gares = json.load(f)
-
-with open(poi_file, "r", encoding="utf-8") as f:
-    poi_data = json.load(f)
-
 # ---- Calcul du point de départ ----
 
-def get_best_transit_route(randomness=0.3, city="Lyon", departure_time: datetime = None):
+def get_best_transit_route(randomness=0.3, city="Lyon", departure_time=None, stops_data=None, gares=None):
     """
     Sélectionne le meilleur arrêt selon le score et récupère un itinéraire de transport en commun via Google Maps.
     """
@@ -227,7 +205,7 @@ def angle_between(p1, p2, p3):
     cos_theta = dot / (norm1 * norm2)
     return max(-1.0, min(1.0, cos_theta))  # borne pour stabilité numérique
 
-def best_hiking_path(start_coord, max_distance_m):
+def best_hiking_path(start_coord, max_distance_m, G, poi_data):
     """
     Cherche un chemin maximisant score/distance réelle,
     avec contraintes : évite revisites, pénalise angles obtus,
@@ -310,7 +288,7 @@ def save_geojson(data, output_path="data/paths/optimized_routes.geojson"):
         print(f"✅ GeoJSON sauvegardé dans {output_path}")
 
 # ---- Calcul du retour en transport en commun ----
-def compute_return_transit(path, return_time: datetime, city: str):
+def compute_return_transit(path, return_time, city, G, stops_data, gares):
     """
     Calcule le trajet retour en transport en commun depuis le dernier point du path jusqu'à la ville.
     Ajoute également la marche jusqu'au premier arrêt de TC dans le path.
@@ -470,10 +448,37 @@ def compute_total_ascent(elevations, min_diff=2):
 
 
 # ---- Fonction principale combinée ----
-def compute_best_route(randomness=0.2, city="Lyon", departure_time: datetime = None, return_time: datetime = None, level: str = "intermediaire"):
+def compute_best_route(randomness=0.2, city="Lyon", massif="Chartreuse",
+                       departure_time: datetime = None, return_time: datetime = None,
+                       level: str = "intermediaire"):    
     """
     Planifie une randonnée en utilisant le meilleur itinéraire en transport .replace(tzinfo=None)en commun pour atteindre le départ.
     """
+
+    massif_clean = slugify(massif)
+
+    stops_path = f"data/output/{massif_clean}_stop_node_mapping.json"
+    graph_path = f"data/output/{massif_clean}_hiking_graph.gpickle"
+    poi_file = f"data/output/{massif_clean}_poi_scores.geojson"
+    gares_path = "data/input/gares_departs.json"
+
+    for path in [stops_path, graph_path, gares_path, poi_file]:
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"❌ Fichier introuvable pour le massif {massif} : {path}")
+        
+    # Chargement des données
+    with open(stops_path, "r", encoding="utf-8") as f:
+        stops_data = json.load(f)
+
+    with open(graph_path, "rb") as f:
+        G = pickle.load(f)
+
+    with open(gares_path, "r", encoding="utf-8") as f:
+        gares = json.load(f)
+
+    with open(poi_file, "r", encoding="utf-8") as f:
+        poi_data = json.load(f)
+
 
     if getattr(settings, "USE_MOCK_DATA", False):
         file_path = os.path.join(settings.BASE_DIR, "data/paths/optimized_routes_example.geojson")
@@ -482,7 +487,7 @@ def compute_best_route(randomness=0.2, city="Lyon", departure_time: datetime = N
     departure_time = datetime.fromisoformat(departure_time)
     return_time = datetime.fromisoformat(return_time)
     # --- Étape 1 : Récupérer l'itinéraire de transport en commun ---
-    travel_go = get_best_transit_route(randomness=randomness, city=city, departure_time=departure_time)
+    travel_go = get_best_transit_route(randomness=randomness, city=city, departure_time=departure_time, stops_data=stops_data, gares=gares)
     # --- Étape 2 : Extraire les coordonnées du dernier point de transit ---
     transit_end = None
     if travel_go:
@@ -499,10 +504,10 @@ def compute_best_route(randomness=0.2, city="Lyon", departure_time: datetime = N
     max_distance_m = compute_max_hiking_distance(departure_time, return_time, level, travel_go)
     print(f"Distance maximale de randonnée estimée : {max_distance_m/1000:.1f} km")
     # --- Étape 4 : Lancer la recherche du meilleur chemin de randonnée ---
-    path, dist = best_hiking_path(start_coord=(transit_end[1], transit_end[0]), max_distance_m=max_distance_m)
+    path, dist = best_hiking_path(start_coord=(transit_end[1], transit_end[0]), max_distance_m=max_distance_m, G=G, poi_data=poi_data)
     print(f"Distance de randonnée planifiée : {dist/1000:.1f} km")
     # --- Étape 5 : Calculer l'itinéraire retour en transport en commun ---
-    path, travel_return, dist = compute_return_transit(path, return_time, city)
+    path, travel_return, dist = compute_return_transit(path, return_time, city, G=G, stops_data=stops_data, gares=gares)
 
     # --- Etape 5b : Récupérer les élévations ---
     elevations = get_elevations(path)
