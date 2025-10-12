@@ -36,7 +36,7 @@ if ville not in gares:
 destination = gares[ville]
 
 # --- Charger les arrêts intermédiaires ---
-input_path = f"data/intermediate/{slugify(massif)}__{slugify(ville)}_arrets.geojson"
+input_path = f"data/intermediate/{slugify(massif)}_{slugify(ville)}_arrets.geojson"
 gdf = gpd.read_file(input_path)
 
 # --- Heure de départ retour : dimanche prochain à 14h ---
@@ -113,7 +113,7 @@ gdf["duration_min_back"] = durations_back
 gdf = gdf[gdf["duration_min_back"].notnull()]
 
 # --- Sauvegarde (même fichier que Arrets_1) ---
-output_path = f"data/intermediate/{slugify(massif)}__{slugify(ville)}_arrets.geojson"
+output_path = f"data/intermediate/{slugify(massif)}_{slugify(ville)}_arrets.geojson"
 gdf.to_file(output_path, driver="GeoJSON")
 
 print(f"✅ Fichier mis à jour : {output_path}")

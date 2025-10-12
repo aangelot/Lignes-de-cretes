@@ -6,7 +6,7 @@ from utils import slugify
 
 def add_elevations(massif: str, ville: str):
     # Fichier d'entrée et de sortie
-    file_path = f"data/intermediate/{slugify(massif)}__{slugify(ville)}_arrets.geojson"
+    file_path = f"data/intermediate/{slugify(massif)}_{slugify(ville)}_arrets.geojson"
     gdf = gpd.read_file(file_path)
 
     # Fonction pour récupérer l'altitude via l’API Open-Elevation

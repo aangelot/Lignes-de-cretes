@@ -6,7 +6,7 @@ from utils import slugify
 
 def add_distance_to_border(massif: str, ville: str):
     # Fichier d'entrée et sortie
-    file_path = f"data/intermediate/{slugify(massif)}__{slugify(ville)}_arrets.geojson"
+    file_path = f"data/intermediate/{slugify(massif)}_{slugify(ville)}_arrets.geojson"
     gdf_stops = gpd.read_file(file_path)
 
     # Charger le parc correspondant
