@@ -17,17 +17,27 @@ import math
 # ---- Chargement des données ----
 load_dotenv()
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_API_KEY")  
-stops_path = "data/output/stop_node_mapping.json"
-graph_path = "data/output/hiking_graph.gpickle"
-city_hubs_path = "data/output/city_hubs.json"
-poi_file="data/output/poi_scores.geojson"
 
+stops_path = "data/output/chartreuse_stop_node_mapping.json"
+graph_path = "data/output/chartreuse_hiking_graph.gpickle"
+gares_path = "data/input/gares_departs.json"
+poi_file = "data/output/chartreuse_poi_scores.geojson"
+
+# Vérification des fichiers
+for path in [stops_path, graph_path, gares_path, poi_file]:
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"❌ Fichier introuvable : {path}")
+
+# Chargement des données
 with open(stops_path, "r", encoding="utf-8") as f:
     stops_data = json.load(f)
+
 with open(graph_path, "rb") as f:
     G = pickle.load(f)
-with open(city_hubs_path, "r", encoding="utf-8") as f:
-    city_hubs = json.load(f)
+
+with open(gares_path, "r", encoding="utf-8") as f:
+    gares = json.load(f)
+
 with open(poi_file, "r", encoding="utf-8") as f:
     poi_data = json.load(f)
 
@@ -76,10 +86,10 @@ def get_best_transit_route(randomness=0.3, city="Lyon", departure_time: datetime
         return data["features"][0]["properties"]["transit_go"]
     
 
-    if city not in city_hubs:
-        raise ValueError(f"Ville {city} non trouvée dans city_hubs.json")
+    if city not in gares:
+        raise ValueError(f"❌ Ville '{city}' non trouvée dans gares_departs.json")
 
-    origin_coords = city_hubs[city]["coords"]
+    origin_coords = [gares[city]["latitude"], gares[city]["longitude"]]
     origin = {"latLng": {"latitude": origin_coords[0], "longitude": origin_coords[1]}}
 
     # --- Parcourir les meilleurs arrêts pour trouver un itinéraire valide ---
@@ -335,8 +345,8 @@ def compute_return_transit(path, return_time: datetime, city: str):
     # --- Tester les stops jusqu'à trouver un itinéraire TC ---
     for _, stop_id, stop_coord in stops_list[:10]:
         origin = {"location": {"latLng": {"latitude": stop_coord[1], "longitude": stop_coord[0]}}}
-        # Destination city : on peut récupérer coords depuis un dictionnaire city_hubs      
-        city_coords = city_hubs[city]["coords"]
+        # Destination city : on peut récupérer coords depuis un dictionnaire gares_departs      
+        city_coords = [gares[city]["latitude"], gares[city]["longitude"]]
         destination = {"location": {"latLng": {"latitude": city_coords[0], "longitude": city_coords[1]}}}
 
         if getattr(settings, "USE_MOCK_ROUTE_CREATION", False):
@@ -355,7 +365,6 @@ def compute_return_transit(path, return_time: datetime, city: str):
                     # Premier step startLocation = dernier point du path
                     first_step["startLocation"]["latLng"] = {"latitude": last_point[1], "longitude": last_point[0]}
                     # Dernier step endLocation = coordonnées de la ville
-                    city_coords = city_hubs[city]["coords"]
                     last_step["endLocation"]["latLng"] = {"latitude": city_coords[0], "longitude": city_coords[1]}
                     # Ajuster arrivalTime du dernier step
                     last_step["transitDetails"]["stopDetails"]["arrivalTime"] = return_time.isoformat()
