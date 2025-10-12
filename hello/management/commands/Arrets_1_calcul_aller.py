@@ -94,7 +94,7 @@ def process_scores(massif: str, ville: str):
     output_gdf = gpd.GeoDataFrame(results, crs="EPSG:4326")
 
     # Exporter
-    output_path = f"data/intermediate/{slugify(massif)}__{slugify(ville)}_arrets.geojson"
+    output_path = f"data/intermediate/{slugify(massif)}_{slugify(ville)}_arrets.geojson"
     output_gdf.to_file(output_path, driver="GeoJSON")
     print(f"✅ Fichier exporté : {output_path}")
 

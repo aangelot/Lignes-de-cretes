@@ -5,7 +5,7 @@ from utils import slugify
 
 def normalize_scores(massif: str, ville: str):
     # Fichier d'entrée
-    file_path_input = f"data/intermediate/{slugify(massif)}__{slugify(ville)}_arrets.geojson"
+    file_path_input = f"data/intermediate/{slugify(massif)}_{slugify(ville)}_arrets.geojson"
     gdf = gpd.read_file(file_path_input)
 
     # Colonnes à normaliser
