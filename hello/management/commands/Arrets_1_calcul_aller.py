@@ -87,7 +87,7 @@ def process_scores(massif: str, ville: str):
             "duration_min_go": duration_min,
             "geometry": Point(lon, lat)
         })
-        time.sleep(0.1)  # limiter les requêtes
+        time.sleep(6)  # limiter les requêtes
 
     # Filtrer uniquement ceux avec une durée valide
     results = [r for r in results if r["duration_min_go"] is not None]

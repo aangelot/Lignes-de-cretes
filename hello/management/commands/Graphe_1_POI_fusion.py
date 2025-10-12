@@ -1,85 +1,93 @@
 import geopandas as gpd
-from shapely.geometry import Point, LineString
+from shapely.geometry import Point
 import os
 from sklearn.preprocessing import MinMaxScaler
-import networkx as nx
+import sys
+from utils import slugify
 
-# Fichiers
-POI_FILE = "data/intermediate/poi_scores.geojson"
-PATHS_FILE = "data/intermediate/chartreuse_hiking_paths.geojson"
-OUTPUT_FILE = "data/output/chartreuse_hiking_paths_with_poi_scores.geojson"
+def main():
+    if len(sys.argv) < 2:
+        print("❌ Usage: python Graphe_1_POI_fusion.py <massif_name>")
+        sys.exit(1)
 
-# Charger
-gdf_poi = gpd.read_file(POI_FILE)
-gdf_paths = gpd.read_file(PATHS_FILE)
+    massif_name = sys.argv[1]
+    massif_slug = slugify(massif_name)
 
-# Reprojecter en métrique (Lambert 93) pour calculs de distance
-gdf_poi = gdf_poi.to_crs(epsg=2154)
-gdf_paths = gdf_paths.to_crs(epsg=2154)
+    # Fichiers
+    poi_file = f"data/output/{massif_slug}_poi_scores.geojson"
+    paths_file = f"data/intermediate/{massif_slug}_hiking_paths.geojson"
+    output_file = f"data/output/{massif_slug}_hiking_paths_with_poi_scores.geojson"
 
-# S'assurer que POI ont une géométrie
-if "geometry" not in gdf_poi.columns or gdf_poi.geometry.is_empty.all():
-    def make_point(row):
-        geo = row.get("geolocalisation", None)
-        if geo and isinstance(geo, (list, tuple)) and len(geo) >= 2:
-            return Point(geo[0], geo[1])
-        return None
-    gdf_poi["geometry"] = gdf_poi.apply(make_point, axis=1)
-    gdf_poi = gdf_poi.set_geometry("geometry")
+    # Charger
+    gdf_poi = gpd.read_file(poi_file)
+    gdf_paths = gpd.read_file(paths_file)
 
-# Initialiser l'agrégation
-gdf_paths["poi_score_total"] = 0.0
+    # Reprojeter en métrique (Lambert 93) pour calculs de distance
+    gdf_poi = gdf_poi.to_crs(epsg=2154)
+    gdf_paths = gdf_paths.to_crs(epsg=2154)
 
-# Index spatial pour les chemins (facultatif mais accélère l'intersection)
-paths_sindex = gdf_paths.sindex
+    # S'assurer que POI ont une géométrie
+    if "geometry" not in gdf_poi.columns or gdf_poi.geometry.is_empty.all():
+        def make_point(row):
+            geo = row.get("geolocalisation", None)
+            if geo and isinstance(geo, (list, tuple)) and len(geo) >= 2:
+                return Point(geo[0], geo[1])
+            return None
+        gdf_poi["geometry"] = gdf_poi.apply(make_point, axis=1)
+        gdf_poi = gdf_poi.set_geometry("geometry")
 
-# Pour chaque POI, buffer de 100 m et ajouter son score à tous les segments intersectés
-for _, poi in gdf_poi.iterrows():
-    poi_point = poi.geometry
-    if poi_point is None:
-        continue
+    # Initialiser l'agrégation
+    gdf_paths["poi_score_total"] = 0.0
 
-    try:
-        base_score = float(poi.get("score", 0))
-    except Exception:
-        base_score = 0.0
+    # Index spatial
+    paths_sindex = gdf_paths.sindex
 
-    if str(poi.get("type", "")).lower() == "summit":
-        base_score *= 5 #bonification pour les sommets
+    # Pour chaque POI, buffer de 100 m et ajouter son score
+    for _, poi in gdf_poi.iterrows():
+        poi_point = poi.geometry
+        if poi_point is None:
+            continue
 
-    buffer = poi_point.buffer(100)  # 100 mètres
+        try:
+            base_score = float(poi.get("score", 0))
+        except Exception:
+            base_score = 0.0
 
-    # Recherche rapide d'éventuels candidats via spatial index
-    possible_idxs = list(paths_sindex.intersection(buffer.bounds))
-    if not possible_idxs:
-        continue
+        if str(poi.get("type", "")).lower() == "summit":
+            base_score *= 5  # bonus pour les sommets
 
-    # Pour chaque segment qui intersecte réellement
-    for idx in possible_idxs:
-        path_geom = gdf_paths.at[idx, "geometry"]
-        if path_geom is not None and buffer.intersects(path_geom):
-            gdf_paths.at[idx, "poi_score_total"] += base_score
+        buffer = poi_point.buffer(100)  # 100 m
+        possible_idxs = list(paths_sindex.intersection(buffer.bounds))
+        if not possible_idxs:
+            continue
 
-# Construire score_total
-gdf_paths["randonnabilite_score"] = gdf_paths["randonnabilite_score"].fillna(0.0)
-gdf_paths["score_total"] = gdf_paths["randonnabilite_score"] + gdf_paths["poi_score_total"]
-scaler = MinMaxScaler()
-gdf_paths["score_total_normalized"] = scaler.fit_transform(gdf_paths[["score_total"]])
+        for idx in possible_idxs:
+            path_geom = gdf_paths.at[idx, "geometry"]
+            if path_geom is not None and buffer.intersects(path_geom):
+                gdf_paths.at[idx, "poi_score_total"] += base_score
 
-# Calcul de la longueur en mètres pour chaque LineString
-gdf_paths["distance_meters"] = gdf_paths.geometry.length
-gdf_paths["distance_meters_normalized"] = scaler.fit_transform(gdf_paths[["distance_meters"]])
+    # Construire score_total
+    gdf_paths["randonnabilite_score"] = gdf_paths["randonnabilite_score"].fillna(0.0)
+    gdf_paths["score_total"] = gdf_paths["randonnabilite_score"] + gdf_paths["poi_score_total"]
+    scaler = MinMaxScaler()
+    gdf_paths["score_total_normalized"] = scaler.fit_transform(gdf_paths[["score_total"]])
 
-# Supprimer les anciens champs
-gdf_paths = gdf_paths.drop(columns=["randonnabilite_score"])
-gdf_paths = gdf_paths.drop(columns=["poi_score_total"])
+    # Longueur en mètres
+    gdf_paths["distance_meters"] = gdf_paths.geometry.length
+    gdf_paths["distance_meters_normalized"] = scaler.fit_transform(gdf_paths[["distance_meters"]])
 
-# Reprojeter en WGS84 si tu veux revenir à exploitable en front
-gdf_paths = gdf_paths.to_crs(epsg=4326)
+    # Nettoyage
+    gdf_paths = gdf_paths.drop(columns=["randonnabilite_score", "poi_score_total"], errors="ignore")
 
-# Sauvegarder
-os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
-gdf_paths.to_file(OUTPUT_FILE, driver="GeoJSON")
+    # Reprojeter en WGS84
+    gdf_paths = gdf_paths.to_crs(epsg=4326)
 
-print(f"✅ Résultat enregistré dans {OUTPUT_FILE}")
+    # Sauvegarder
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    gdf_paths.to_file(output_file, driver="GeoJSON")
 
+    print(f"✅ Résultat enregistré dans {output_file}")
+
+
+if __name__ == "__main__":
+    main()
