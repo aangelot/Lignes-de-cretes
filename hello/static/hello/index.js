@@ -88,13 +88,13 @@ document.addEventListener('DOMContentLoaded', () => {
         resetElevationControl();
 
         const city = document.getElementById('city').value;
+        const massif = document.getElementById('massif').value;
         const level = document.getElementById('level').value;
         const randomness = document.getElementById('randomness').value;
         const departure_datetime = document.getElementById('departure_datetime').value;
         const return_datetime = document.getElementById('return_datetime').value;
 
-        const url = `/get_route/?city=${encodeURIComponent(city)}&level=${encodeURIComponent(level)}&randomness=${encodeURIComponent(randomness)}&departure_datetime=${encodeURIComponent(departure_datetime)}&return_datetime=${encodeURIComponent(return_datetime)}`;
-
+        const url = `/get_route/?city=${encodeURIComponent(city)}&massif=${encodeURIComponent(massif)}&level=${encodeURIComponent(level)}&randomness=${encodeURIComponent(randomness)}&departure_datetime=${encodeURIComponent(departure_datetime)}&return_datetime=${encodeURIComponent(return_datetime)}`;
         try {
             const response = await fetch(url);
             if (!response.ok) throw new Error('Erreur lors de la récupération du tracé');

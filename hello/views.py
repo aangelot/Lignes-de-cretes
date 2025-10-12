@@ -9,6 +9,7 @@ def get_route(request):
     if request.method == "GET":
         try:
             city = request.GET.get("city", "Lyon")
+            massif = request.GET.get("massif", "Chartreuse")
             level = request.GET.get("level", "debutant")
             randomness_str = request.GET.get("randomness", "0.3")
             departure_datetime = request.GET.get("departure_datetime")
@@ -22,14 +23,16 @@ def get_route(request):
                 randomness = 0.3
 
             # Appel à la logique métier avec les nouveaux paramètres
-            print(f"Appel get_route avec city={city}, level={level}, randomness={randomness}, departure_datetime={departure_datetime}, return_datetime={return_datetime}")  
+            print(f"Appel get_route avec city={city}, massif={massif}, level={level}, randomness={randomness}, departure_datetime={departure_datetime}, return_datetime={return_datetime}")
             geojson_data = compute_best_route(
                 randomness=randomness,
                 city=city,
+                massif=massif,
                 departure_time=departure_datetime,
                 return_time=return_datetime,
                 level=level,
             )
+
 
             # Sauvegarde facultative
             save_geojson(geojson_data)
