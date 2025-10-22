@@ -596,7 +596,7 @@ def compute_best_route(randomness=0.2, city="Lyon", massif="Chartreuse",
     max_distance_m = compute_max_hiking_distance(departure_time, return_time, level, travel_go)
     print(f"Distance maximale de randonnée estimée : {max_distance_m/1000:.1f} km")
     # --- Étape 4 : Lancer la recherche du meilleur chemin de randonnée ---
-    path, dist = best_hiking_path(start_coord=(transit_end[1], transit_end[0]), max_distance_m=max_distance_m, G=G, poi_data=poi_data,randomness=randomness)
+    path, dist = best_hiking_path(start_coord=(transit_end[0], transit_end[1]), max_distance_m=max_distance_m, G=G, poi_data=poi_data,randomness=randomness)
     print(f"Distance de randonnée planifiée : {dist/1000:.1f} km")
     # --- Étape 5 : Calculer l'itinéraire retour en transport en commun ---
     path, travel_return, dist = compute_return_transit(path, return_time, city, G=G, stops_data=stops_data, gares=gares)
