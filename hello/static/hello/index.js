@@ -38,12 +38,76 @@ document.addEventListener('DOMContentLoaded', () => {
     let startMarker = null;
     let endMarker = null;
     let arrowDecorator = null;
+    let controlElevation = null;
 
     // Slider randomness
     const slider = document.getElementById('randomness');
     const display = document.getElementById('randomness-value');
     display.textContent = slider.value;
     slider.addEventListener('input', () => display.textContent = slider.value);
+
+    // Crée le control d'élévation dans la modale Résumé
+    function initElevationInSummary() {
+        const summaryModal = document.getElementById('modal-summary');
+        const elevDiv = summaryModal.querySelector("#elevation-div");
+        const legendDiv = summaryModal.querySelector("#elevation-legend");
+        if (!elevDiv || !legendDiv) return;
+
+        // Supprimer l'ancien contrôle si existant
+        if (controlElevation) {
+            controlElevation.remove();
+            controlElevation = null;
+        }
+
+        // Initialisation du contrôle
+        controlElevation = L.control.elevation({
+            elevationDiv: "#elevation-div",
+            theme: "custom-elevation-theme",
+            collapsed: false
+        }).addTo(map);
+
+        // Ajouter les données si elles existent
+        if (currentLayer) controlElevation.addData(currentLayer.toGeoJSON());
+
+        // Forcer le resize après rendu
+        setTimeout(() => {
+            if (controlElevation && typeof controlElevation.resize === "function") {
+                controlElevation.resize();
+            }
+
+            // Mettre à jour la légende personnalisée
+            const data = currentLayer ? currentLayer.toGeoJSON() : null;
+            if (data) {
+                let totalLength = 0, minEle = Infinity, maxEle = -Infinity, sumEle = 0, nPoints = 0;
+                const props = data.features[0].properties;
+                data.features.forEach(f => {
+                    const coords = f.geometry.coordinates;
+                    for (let i = 0; i < coords.length; i++) {
+                        const ele = coords[i][2];
+                        if (ele != null) {
+                            minEle = Math.min(minEle, ele);
+                            maxEle = Math.max(maxEle, ele);
+                            sumEle += ele;
+                            nPoints++;
+                        }
+                        if (i > 0) {
+                            const prev = L.latLng(coords[i-1][1], coords[i-1][0]);
+                            const curr = L.latLng(coords[i][1], coords[i][0]);
+                            totalLength += prev.distanceTo(curr);
+                        }
+                    }
+                });
+
+                legendDiv.innerHTML = `
+                    <p><strong>Distance totale :</strong> ${(totalLength/1000).toFixed(2)} km</p>
+                    <p><strong>Dénivelé positif :</strong> ${props.path_elevation ?? 'N/A'} m</p>
+                    <p><strong>Altitude minimale :</strong> ${minEle.toFixed(0)} m</p>
+                    <p><strong>Altitude maximale :</strong> ${maxEle.toFixed(0)} m</p>
+                `;
+            }
+
+        }, 100); // 100ms pour être sûr que le DOM a pris la taille
+    }
 
     // === Nettoyage carte ===
     function clearMapOverlays() {
@@ -52,6 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (endMarker) { map.removeLayer(endMarker); endMarker = null; }
         if (arrowDecorator) { map.removeLayer(arrowDecorator); arrowDecorator = null; }
     }
+
 
     // === Fonction affichage transit ===
     function afficherTransit(transitData, container) {
@@ -71,9 +136,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         container.innerHTML += `<h4>${dateStr}</h4>`;
-
-        let firstCoords = null;
-        let lastCoords = null;
 
         transitData.routes.forEach(route => {
             route.legs.forEach(leg => {
@@ -146,29 +208,26 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.addEventListener('click', () => {
             const isCollapsed = modal.classList.contains('collapsed');
 
-            // fermer toutes les autres modales
+            // Si on ouvre cette modale, on ferme toutes les autres
             document.querySelectorAll('.floating-modal').forEach(m => {
-                if (m !== modal) {
+                const b = m.querySelector('.toggle-btn');
+                if (m === modal) {
+                    if (isCollapsed) {
+                        m.classList.remove('collapsed');
+                        if (b) b.textContent = '▲';
+                        if (m.id === 'modal-summary') initElevationInSummary();
+                    } else {
+                        m.classList.add('collapsed');
+                        if (b) b.textContent = '▼';
+                    }
+                } else {
                     m.classList.add('collapsed');
-                    const b = m.querySelector('.toggle-btn');
                     if (b) b.textContent = '▼';
                 }
             });
-
-            // bascule de l'état de la modale cliquée
-            if (isCollapsed) {
-                modal.classList.remove('collapsed');
-                btn.textContent = '▲';
-            } else {
-                modal.classList.add('collapsed');
-                btn.textContent = '▼';
-            }
         });
     }
-
-    document.querySelectorAll('.floating-modal').forEach(modal => {
-        addToggleExclusive(modal);
-    });
+    document.querySelectorAll('.floating-modal').forEach(addToggleExclusive);
 
     // === Soumission formulaire ===
     document.getElementById('trek-form').addEventListener('submit', async e => {
@@ -220,6 +279,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             map.fitBounds(currentLayer.getBounds());
 
+
             // Masquer formulaire
             const formModal = document.getElementById('form-modal');
             formModal.classList.add('collapsed');
@@ -234,17 +294,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button class="toggle-btn">▼</button>
                 </div>
                 <div class="modal-body">
-                    <p><strong>Distance :</strong> ${(props.path_length/1000).toFixed(1)} km</p>
-                    <p><strong>Dénivelé positif :</strong> ${props.path_elevation ?? 'N/A'} m</p>
+                    <div id="elevation-div"></div>
+                    <div id="elevation-legend" class="custom-legend"></div>
                 </div>
             `;
+            initElevationInSummary();
+
 
             // Modales Aller / Retour
             ['go','back'].forEach(type => {
                 const modal = document.getElementById('modal-' + type);
                 modal.innerHTML = `
                     <div class="modal-header">
-                        <h3>${type === 'go' ? '➡️ Aller' : '⬅️ Retour'}</h3>
+                        <h3>${type === 'go' ? '➡️🚊 Aller' : '⬅️🚊 Retour'}</h3>
                         <button class="toggle-btn">▲</button>
                     </div>
                     <div class="modal-body"></div>
