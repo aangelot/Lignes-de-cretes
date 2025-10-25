@@ -49,10 +49,6 @@ button {
     transition: background-color 0.2s;
 }
 
-button:hover {
-    background-color: #d97307;
-}
-
 .nav-buttons button {
     background-color: rgba(0,0,0,0);
     color: #fff;
@@ -61,7 +57,7 @@ button:hover {
     transition: all 0.2s ease;
 }
 
-.nav-buttons button:hover {
+button:hover {
     background-color: #ef8409;
 }
 
@@ -73,6 +69,7 @@ button:hover {
 
 .highlight:hover {
     background-color: #ef8409 !important;
+    color:#fff !important;
 }
 
 /* Modale */
@@ -95,6 +92,11 @@ button:hover {
     border-radius: 12px;
     max-width: 500px;
     text-align: center;
+    color:#19191e
+}
+
+.modal-content h2 {
+    margin-top: 0;
 }
 
 .close-btn {
