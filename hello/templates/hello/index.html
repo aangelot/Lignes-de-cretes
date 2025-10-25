@@ -28,9 +28,29 @@
 </head>
 
 <body>
+<header>
+    <div class="logo-container">
+    <img src="static/hello/favicon.png" alt="Logo Lignes de crêtes" />
+    <h2>Lignes de crêtes</h2>
+    </div>
+    <div class="nav-buttons">
+        <button id="infoBtn">En savoir plus</button>
+        <button onclick="window.open('https://fr.tipeee.com/lignes-de-cretes', '_blank')">Soutenir</button>
+        <button class="highlight" onclick="window.open('https://framaforms.org/evaluation-lignes-de-cretes-1761382300', '_blank')">Donner son avis</button>
+    </div>
+</header>
+
+<!-- Modale -->
+<div id="infoModal" class="modal">
+    <div class="modal-content">
+    <h2>À propos de Lignes de crêtes</h2>
+    <p>Lignes de crêtes est un projet qui invite chacun à (re)découvrir les montagnes et la nature à travers des randonnées accessibles en transport en commun.</p>
+    <button class="close-btn" id="closeModal">Fermer</button>
+    </div>
+</div>
 <div class="container">
+
     <div class="sidebar">
-        <h2>Lignes de crêtes</h2>
         <div class="form-wrapper">
             <form id="trek-form" method="get">
                 <label for="city">Ville de départ :</label>
