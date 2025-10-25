@@ -79,7 +79,7 @@ def get_best_transit_route(randomness=0.25, city="Lyon", departure_time=None, re
     if return_time.tzinfo is None:
         return_time = return_time.replace(tzinfo=ZoneInfo("Europe/Paris"))
 
-    for score_final, stop_id, stop_info in scored_stops[:10]:
+    for score_final, stop_id, stop_info in scored_stops:
         dest_coords = stop_info["node"]
         destination = {"latLng": {"latitude": dest_coords[1], "longitude": dest_coords[0]}}
         body = {
@@ -102,23 +102,30 @@ def get_best_transit_route(randomness=0.25, city="Lyon", departure_time=None, re
             r.raise_for_status()
             data = r.json()
 
-            if "routes" not in data or len(data["routes"]) == 0:
-                print(f"⚠️ Pas d'itinéraire pour l'arrêt {stop_id} ({score_final:.3f})")
-                time.sleep(1) 
-                continue
-
-            # --- Vérification de la fenêtre horaire ---
-            leg = data["routes"][0]["legs"][0]
+            leg = data.get("routes", [{}])[0].get("legs", [{}])[0]
             steps = leg.get("steps", [])
-            transit_steps = [s for s in steps if s["travelMode"] == "TRANSIT"]
+            transit_steps = [s for s in steps if s.get("travelMode") == "TRANSIT"]
+
+            # --- Cas aucun step TRANSIT ---
             if not transit_steps:
                 print(f"⚠️ Aucun step TRANSIT pour {stop_id}")
+                stop_info["failure_count"] = stop_info.get("failure_count", 0) + 1
+                print(f"⚠️ Compteur échec pour {stop_id} = {stop_info['failure_count']}")
+
+                # Suppression si compteur >= 20
+                if stop_info["failure_count"] >= 20:
+                    print(f"❌ Suppression définitive de l'arrêt {stop_id}")
+                    stops_data.pop(stop_id)
+
+                time.sleep(1)
                 continue
 
+            stop_info["failure_count"] = 0  # reset compteur en cas de succès
+
+            # --- Vérification de la fenêtre horaire ---
             dep_time_str = transit_steps[0]["transitDetails"]["stopDetails"]["departureTime"]
             dep_time = datetime.fromisoformat(dep_time_str).astimezone(ZoneInfo("Europe/Paris"))
 
-            # Fenêtre dynamique
             max_delay_h = 18 if departure_time.hour >= 18 else 6
             min_delay_h = -1
 
@@ -136,7 +143,6 @@ def get_best_transit_route(randomness=0.25, city="Lyon", departure_time=None, re
                 print(f"🚫 Trajet vers {stop_id} trop tard pour le retour (temps de marche <4h)")
                 continue
 
-            # Tout OK
             print(f"✅ Itinéraire valide trouvé depuis l'arrêt {stop_id} (score={score_final:.3f})")
             return data
 
@@ -232,11 +238,9 @@ def haversine(coord1, coord2):
     a = math.sin(dlat / 2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2)**2
     return 2 * R * math.asin(math.sqrt(a))
 
-
 def find_nearest_node(G, coord):
     """Trouve le nœud du graphe le plus proche d'une coordonnée (lat, lon)."""
     return min(G.nodes, key=lambda n: haversine(coord, (n[1], n[0])))
-
 
 def angle_between(p1, p2, p3):
     """Cosinus de l’angle entre (p1→p2) et (p2→p3)."""
@@ -249,7 +253,6 @@ def angle_between(p1, p2, p3):
         return 0
     cos_theta = dot / (norm1 * norm2)
     return max(-1.0, min(1.0, cos_theta))
-
 
 def path_has_crossing(path_nodes, new_segment_nodes):
     """
@@ -424,16 +427,12 @@ def best_hiking_path(start_coord, max_distance_m, G, poi_data, randomness=0.3, p
     print(f"Distance finale: {best_dist/1000:.2f} km, points: {len(best_path)}, POI visités: {len(visited_pois)}")
     return best_path, best_dist
 
-
-
-
 def save_geojson(data, output_path="data/paths/optimized_routes.geojson"):
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
         print(f"✅ GeoJSON sauvegardé dans {output_path}")
 
-# ---- Calcul du retour en transport en commun ----
 def compute_return_transit(path, return_time, city, G, stops_data, gares):
     """
     Calcule le trajet retour en transport en commun depuis le dernier point du path jusqu'à la ville.
@@ -515,17 +514,26 @@ def compute_return_transit(path, return_time, city, G, stops_data, gares):
 
         # --- TRAITEMENT DU RÉSULTAT ---
         steps = resp.get("routes", [{}])[0].get("legs", [{}])[0].get("steps", [])
-        transit_steps = [s for s in steps if s["travelMode"] == "TRANSIT"]
+        transit_steps = [s for s in steps if s.get("travelMode") == "TRANSIT"]
 
         if transit_steps:
             print(f" ✅ Itinéraire retour trouvé depuis l’arrêt {stop_id}.")
+            # Reset compteur si succès
+            stops_data[stop_id]["failure_count"] = 0
             return_transit_route = resp
             first_step_start = transit_steps[0]["startLocation"]["latLng"]
             break
         else:
-            print(f" Aucun transit trouvé depuis l’arrêt {stop_id}.")
-            time.sleep(1) 
-
+            print(f" ⚠ Aucun transit trouvé depuis l’arrêt {stop_id}.")
+            # Incrément compteur
+            stop_info = stops_data.get(stop_id, {})
+            stop_info["failure_count"] = stop_info.get("failure_count", 0) + 1
+            print(f" ⚠ Compteur échec pour {stop_id} = {stop_info['failure_count']}")
+            # Suppression si compteur >= 20
+            if stop_info["failure_count"] >= 20:
+                print(f" ❌ Suppression définitive de l'arrêt {stop_id}")
+                stops_data.pop(stop_id)
+            time.sleep(1)
 
     if return_transit_route is None:
         print(" ❌ Aucun itinéraire retour trouvé après 10 arrêts testés.")
@@ -550,7 +558,6 @@ def compute_return_transit(path, return_time, city, G, stops_data, gares):
 
     print(" ✅ Calcul du trajet retour terminé avec succès.")
     return augmented_path, return_transit_route, best_dist
-
 
 def get_elevations(path):
     """
@@ -591,7 +598,6 @@ def compute_total_ascent(elevations, min_diff=2):
             total_ascent += delta
     return round(total_ascent)
 
-
 # ---- Fonction principale combinée ----
 def compute_best_route(randomness=0.2, city="Lyon", massif="Chartreuse",
                        departure_time: datetime = None, return_time: datetime = None,
@@ -629,8 +635,13 @@ def compute_best_route(randomness=0.2, city="Lyon", massif="Chartreuse",
         file_path = os.path.join(settings.BASE_DIR, "data/paths/optimized_routes_example.geojson")
         with open(file_path, "r", encoding="utf-8") as f:
             return json.load(f)
+        
+    
     departure_time = datetime.fromisoformat(departure_time)
     return_time = datetime.fromisoformat(return_time)
+    for stop_id, stop_info in stops_data.items():
+        stop_info.setdefault("failure_count", 0) #compteur d'échecs pour possible suppression d'un arrêt inatteignable
+
     # --- Étape 1 : Récupérer l'itinéraire de transport en commun ---
     travel_go = get_best_transit_route(randomness=randomness, city=city, departure_time=departure_time, return_time=return_time, stops_data=stops_data, gares=gares)
     # --- Étape 2 : Extraire les coordonnées du dernier point de transit ---
@@ -664,6 +675,10 @@ def compute_best_route(randomness=0.2, city="Lyon", massif="Chartreuse",
     path = [
         [lon, lat, round(ele)] for (lon, lat), ele in zip(path, smoothed_elevations)
     ]
+
+    # Sauvegarde des arrêts inaccessibles
+    with open(stops_path, "w", encoding="utf-8") as f:
+        json.dump(stops_data, f, indent=2, ensure_ascii=False)
 
     # --- Étape 6 : Construire la Feature GeoJSON ---
     start_coord = path[0]
