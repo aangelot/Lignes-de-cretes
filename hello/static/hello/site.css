@@ -59,6 +59,7 @@ button {
 
 button:hover {
     background-color: #ef8409;
+    color:#fff;
 }
 
 .highlight {
@@ -154,12 +155,17 @@ a:hover {
   padding: 0.5em 1em;
 }
 
-.modal-header h3 {
-  margin: 0;
-  font-size: 1em;
+.floating-modal .modal-header h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem; /* espace entre l'emoji et le texte */
+    margin: 0;
+    color: #ef8409; /* couleur orange du projet */
 }
 
-.toggle-btn {
+.toggle-btn {   
   border: none;
   background: #333;
   color: #fff;
@@ -179,9 +185,24 @@ a:hover {
   padding: 1em;
 }
 
+.modal-body h4 {
+  margin-top: 0;
+  margin-bottom: 0.5em;
+}
+
 /* État replié */
 .floating-modal.collapsed .modal-body {
   display: none;
+}
+
+.gmaps-btn {
+    padding: 0.6rem 1rem;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+}
+
+.gmaps-btn:hover {
+    color:#fff;
 }
 
 /* Formulaire à l’intérieur */

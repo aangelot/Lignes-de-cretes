@@ -72,6 +72,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         container.innerHTML += `<h4>${dateStr}</h4>`;
 
+        let firstCoords = null;
+        let lastCoords = null;
+
         transitData.routes.forEach(route => {
             route.legs.forEach(leg => {
                 leg.steps.forEach(step => {
@@ -86,33 +89,86 @@ document.addEventListener('DOMContentLoaded', () => {
                         const headsign = t.headsign;
                         const link = t.transitLine.agencies[0].uri;
 
+                        // Affichage infos
                         container.innerHTML += `<p>
                             Prendre le ${vehicle} ${line} à ${depStop} à ${depTime}, direction ${headsign}, arrivée à ${arrStop} à ${arrTime}. 
                             Plus d'informations sur le <a href="${link}" target="_blank">site de l'agence</a>.
                         </p>`;
+
+                        
                     }
                 });
             });
         });
+
+        // Bouton Google Maps
+        if (transitData.routes.length > 0) {
+            const firstLeg = transitData.routes[0].legs[0];
+            const lastLeg = transitData.routes[0].legs[transitData.routes[0].legs.length - 1];
+
+            let firstCoords = null;
+            let lastCoords = null;
+
+            for (const step of firstLeg.steps) {
+                if (step.travelMode === "TRANSIT") {
+                    const loc = step.transitDetails.stopDetails.departureStop.location.latLng;
+                    firstCoords = `${loc.latitude},${loc.longitude}`;
+                    break;
+                }
+            }
+
+            for (let i = lastLeg.steps.length - 1; i >= 0; i--) {
+                const step = lastLeg.steps[i];
+                if (step.travelMode === "TRANSIT") {
+                    const loc = step.transitDetails.stopDetails.arrivalStop.location.latLng;
+                    lastCoords = `${loc.latitude},${loc.longitude}`;
+                    break;
+                }
+            }
+
+            if (firstCoords && lastCoords) {
+                const gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(firstCoords)}&destination=${encodeURIComponent(lastCoords)}&travelmode=transit&hl=fr`;
+                container.innerHTML += `
+                    <button class="gmaps-btn" onclick="window.open('${gmapsUrl}', '_blank')">
+                        Autres itinéraires sur Google Maps
+                    </button>
+                `;
+            }
+        }
     }
+
 
     // === Toggle exclusif pour toutes les modales ===
     function addToggleExclusive(modal) {
         const btn = modal.querySelector('.toggle-btn');
+        if (!btn) return;
+
         btn.addEventListener('click', () => {
-            const allModals = document.querySelectorAll('.floating-modal');
-            allModals.forEach(m => {
+            const isCollapsed = modal.classList.contains('collapsed');
+
+            // fermer toutes les autres modales
+            document.querySelectorAll('.floating-modal').forEach(m => {
                 if (m !== modal) {
                     m.classList.add('collapsed');
-                    const mBtn = m.querySelector('.toggle-btn');
-                    if (mBtn) mBtn.textContent = '▼';
+                    const b = m.querySelector('.toggle-btn');
+                    if (b) b.textContent = '▼';
                 }
             });
 
-            modal.classList.toggle('collapsed');
-            btn.textContent = modal.classList.contains('collapsed') ? '▼' : '▲';
+            // bascule de l'état de la modale cliquée
+            if (isCollapsed) {
+                modal.classList.remove('collapsed');
+                btn.textContent = '▲';
+            } else {
+                modal.classList.add('collapsed');
+                btn.textContent = '▼';
+            }
         });
     }
+
+    document.querySelectorAll('.floating-modal').forEach(modal => {
+        addToggleExclusive(modal);
+    });
 
     // === Soumission formulaire ===
     document.getElementById('trek-form').addEventListener('submit', async e => {
@@ -174,7 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const summaryModal = document.getElementById('modal-summary');
             summaryModal.innerHTML = `
                 <div class="modal-header">
-                    <h3>Résumé</h3>
+                    <h3>🗺️ Distance et dénivelé</h3>
                     <button class="toggle-btn">▼</button>
                 </div>
                 <div class="modal-body">
@@ -188,11 +244,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 const modal = document.getElementById('modal-' + type);
                 modal.innerHTML = `
                     <div class="modal-header">
-                        <h3>${type === 'go' ? 'Aller' : 'Retour'}</h3>
+                        <h3>${type === 'go' ? '➡️ Aller' : '⬅️ Retour'}</h3>
                         <button class="toggle-btn">▲</button>
                     </div>
                     <div class="modal-body"></div>
                 `;
+            
 
                 if (props['transit_' + type]) 
                     afficherTransit(props['transit_' + type], modal.querySelector('.modal-body'));
@@ -208,7 +265,10 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             // === Attacher toggles exclusifs à toutes les modales ===
-            document.querySelectorAll('.floating-modal').forEach(addToggleExclusive);
+            ['go','back','summary'].forEach(type => {
+                const modal = document.getElementById('modal-' + type);
+                addToggleExclusive(modal);
+            });
 
         } catch (err) {
             alert(err.message);
