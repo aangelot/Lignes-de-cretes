@@ -3,7 +3,7 @@ import json
 import random
 import requests
 import time
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta, time as dtime
 import os
 from dotenv import load_dotenv
 from typing import Tuple, Dict, Any, List
@@ -163,7 +163,7 @@ def compute_max_hiking_distance(departure_time: datetime,
     duration_str = transit_route["routes"][0]["legs"][0]["duration"]
     transit_seconds_return = int(duration_str.replace("s", ""))
     end_walk = return_time - timedelta(seconds=transit_seconds_return)
-    start_walk = datetime.combine(return_time.date(), time(8, 0), tzinfo=return_time.tzinfo)
+    start_walk = datetime.combine(return_time.date(), dtime(8, 0), tzinfo=return_time.tzinfo)
     available_seconds = (end_walk - start_walk).total_seconds()
     fraction_last_day = max(0, available_seconds / max_walk_seconds_per_day)
     distance_last_day = max(min_distance_day1, dist_per_day * fraction_last_day)
@@ -276,6 +276,7 @@ def best_hiking_path(start_coord, max_distance_m, G, poi_data, randomness=0.3, p
         accepted = False
         trials = 0
         first_crossed_poi = None
+        all_over_budget = True  # ← ajout : pour détecter le cas où tous les POI dépassent la distance max
 
         for poi in candidates_sorted:
             if trials >= max_candidate_trials:
@@ -311,6 +312,8 @@ def best_hiking_path(start_coord, max_distance_m, G, poi_data, randomness=0.3, p
             if best_dist + seg_len > max_distance_m:
                 print(f"  - Le segment vers {poi['id']} dépasse le budget restant. On essaie le suivant.")
                 continue
+            else:
+                all_over_budget = False  # au moins un POI est dans le budget
 
             # vérifier croisement
             crosses = path_has_crossing(best_path, path_nodes)
@@ -344,7 +347,7 @@ def best_hiking_path(start_coord, max_distance_m, G, poi_data, randomness=0.3, p
 
             break  # étape suivante
 
-        # si aucun POI accepté et qu'on a un POI croisé, on le repêche
+        # --- Si aucun POI accepté et qu'on a un POI croisé, on le repêche ---
         if not accepted and first_crossed_poi is not None:
             poi, path_nodes, seg_len = first_crossed_poi
             print(f"⚠ Aucun POI accepté après {max_candidate_trials} essais ; on reprend malgré croisement : {poi['id']}")
@@ -354,7 +357,6 @@ def best_hiking_path(start_coord, max_distance_m, G, poi_data, randomness=0.3, p
             visited_pois.add(poi["id"])
             accepted = True
 
-            # ajouter tous les POI à moins de 1000 m
             if len(path_nodes) >= 2:
                 line_geom = LineString(path_nodes)
                 for other_poi in pois:
@@ -364,13 +366,18 @@ def best_hiking_path(start_coord, max_distance_m, G, poi_data, randomness=0.3, p
                             visited_pois.add(other_poi["id"])
                             print(f"    - POI ajouté par proximité <1000m : {other_poi['id']}")
 
-            # marquer arêtes visitées
             for u, v in zip(path_nodes[:-1], path_nodes[1:]):
                 visited_edges.add((u, v))
+
+        # --- Nouvelle condition : si les 10 essais ont échoué parce que tous les POI dépassent le budget, on sort ---
+        if not accepted and all_over_budget:
+            print("🚫 Tous les POI dépassent la distance max — arrêt de la recherche.")
+            break
 
     print("\n=== Recherche terminée ===")
     print(f"Distance finale: {best_dist/1000:.2f} km, points: {len(best_path)}, POI visités: {len(visited_pois)}")
     return best_path, best_dist
+
 
 
 
@@ -385,23 +392,14 @@ def compute_return_transit(path, return_time, city, G, stops_data, gares):
     """
     Calcule le trajet retour en transport en commun depuis le dernier point du path jusqu'à la ville.
     Ajoute également la marche jusqu'au premier arrêt de TC dans le path.
-
-    Args:
-        path: liste de coordonnées [(lon, lat), ...] issue de best_hiking_path
-        return_time: datetime du départ pour le retour
-        city: nom de la ville de destination
-        graph_path: chemin vers le graphe de randonnée
-        stops_path: chemin vers le fichier des arrêts
-        max_attempts: nombre d'arrêts à tester si pas de trajet
-
-    Returns:
-        augmented_path: path initial + marche jusqu'au départ du TC
-        return_transit_route: réponse complète de l'API Google
     """
+    print(f" >>> Début du calcul du trajet retour pour la ville : {city}")
+
     if isinstance(path, tuple):
         path = list(path)
 
     last_point = path[-1]  # (lon, lat)
+
     # --- Trier les arrêts par distance au dernier point ---
     stops_list = []
     for stop_id, stop in stops_data.items():
@@ -414,35 +412,37 @@ def compute_return_transit(path, return_time, city, G, stops_data, gares):
     first_step_start = None
 
     # --- Tester les stops jusqu'à trouver un itinéraire TC ---
-    for _, stop_id, stop_coord in stops_list[:10]:
+    for i, (_, stop_id, stop_coord) in enumerate(stops_list, start=1):
+        print(f" Test de l'arrêt {i} : {stop_id} (coord={stop_coord})")
+
         origin = {"location": {"latLng": {"latitude": stop_coord[1], "longitude": stop_coord[0]}}}
-        # Destination city : on peut récupérer coords depuis un dictionnaire gares_departs      
         city_coords = [gares[city]["latitude"], gares[city]["longitude"]]
         destination = {"location": {"latLng": {"latitude": city_coords[0], "longitude": city_coords[1]}}}
 
         if getattr(settings, "USE_MOCK_ROUTE_CREATION", False):
+            # --- MODE MOCK ---
+            print(" Mode MOCK activé : lecture d’un itinéraire simulé.")
             file_path = os.path.join(settings.BASE_DIR, "data/paths/optimized_routes_example.geojson")
             with open(file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             travel_back = data["features"][0]["properties"].get("transit_back")
             if travel_back:
+                print(" Itinéraire simulé trouvé.")
                 leg = travel_back["routes"][0]["legs"][0]
-                # dernier step en TRANSIT → endLocation = city coords
                 transit_steps = [s for s in leg["steps"] if s["travelMode"] == "TRANSIT"]
                 if transit_steps:
+                    print(f" {len(transit_steps)} étapes de transit simulées.")
                     first_step = transit_steps[0]
                     last_step = transit_steps[-1]
-                    # Premier step startLocation = dernier point du path
                     first_step["startLocation"]["latLng"] = {"latitude": last_point[1], "longitude": last_point[0]}
-                    # Dernier step endLocation = coordonnées de la ville
                     last_step["endLocation"]["latLng"] = {"latitude": city_coords[0], "longitude": city_coords[1]}
-                    # Ajuster arrivalTime du dernier step
                     last_step["transitDetails"]["stopDetails"]["arrivalTime"] = return_time.isoformat()
-                # Ajuster duration du leg
                 leg["duration"] = "7200s"
             resp = travel_back
+
         else:
+            # --- APPEL RÉEL À L’API GOOGLE ---
             url = "https://routes.googleapis.com/directions/v2:computeRoutes"
             headers = {
                 "Content-Type": "application/json",
@@ -454,50 +454,56 @@ def compute_return_transit(path, return_time, city, G, stops_data, gares):
                 "destination": destination,
                 "travelMode": "TRANSIT",
                 "arrivalTime": return_time.replace(tzinfo=ZoneInfo("Europe/Paris")).isoformat(),
-                "transitPreferences": {"routingPreference": "FEWER_TRANSFERS"}
+                "transitPreferences": {"routingPreference": "FEWER_TRANSFERS"},
             }
 
             r = requests.post(url, headers=headers, json=body)
-            if r.status_code == 200:
-                resp = r.json()
 
+            if r.status_code != 200:
+                print(f" ❌ Erreur API pour l'arrêt {stop_id} : {r.text[:200]}")
+                print(" ⏳ Pause d'une seconde avant de réessayer...")
+                time.sleep(1)  
+                continue
+
+            resp = r.json()
+
+        # --- TRAITEMENT DU RÉSULTAT ---
         steps = resp.get("routes", [{}])[0].get("legs", [{}])[0].get("steps", [])
         transit_steps = [s for s in steps if s["travelMode"] == "TRANSIT"]
+
         if transit_steps:
+            print(f" ✅ Itinéraire retour trouvé depuis l’arrêt {stop_id}.")
             return_transit_route = resp
             first_step_start = transit_steps[0]["startLocation"]["latLng"]
             break
+        else:
+            print(f" Aucun transit trouvé depuis l’arrêt {stop_id}.")
+
 
     if return_transit_route is None:
+        print(" ❌ Aucun itinéraire retour trouvé après 10 arrêts testés.")
         raise RuntimeError("Impossible de trouver un itinéraire retour en transport en commun.")
 
     # --- Ajouter la marche jusqu'au premier step TC ---
-    # Convertir shortest_path du graphe de randonnée entre dernier point du path et premier step TC
+    print(" Calcul du chemin de marche vers le premier arrêt TC…")
     start_coord = (last_point[1], last_point[0])  # (lat, lon)
     end_coord = (first_step_start["latitude"], first_step_start["longitude"])
 
     start_node = find_nearest_node(G, start_coord)
     end_node = find_nearest_node(G, end_coord)
     if start_node is None or end_node is None:
+        print(" ❌ Impossible de trouver les noeuds du graphe pour la marche finale.")
         raise RuntimeError("Impossible de trouver les noeuds du graphe pour la marche finale.")
 
     sp_nodes = shortest_path(G, source=start_node, target=end_node, weight="length")
-    def remove_loops(coords):
-        seen = {}
-        new_coords = []
-        for i, node in enumerate(coords):
-            if node in seen:
-                # on a trouvé une boucle → on supprime tout ce qui est entre les deux
-                loop_start = seen[node]
-                new_coords = new_coords[:loop_start+1]
-            else:
-                seen[node] = len(new_coords)
-                new_coords.append(node)
-        return new_coords
+
     augmented_path = path + sp_nodes[1:]
-    # best_dist = path_weight(G, augmented_path, weight="length") 
     best_dist = sum(G[u][v]["length"] for u, v in zip(augmented_path[:-1], augmented_path[1:]))
+    print(f" Distance totale estimée : {best_dist:.1f} m")
+
+    print(" ✅ Calcul du trajet retour terminé avec succès.")
     return augmented_path, return_transit_route, best_dist
+
 
 def get_elevations(path):
     """
