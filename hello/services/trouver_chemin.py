@@ -607,8 +607,9 @@ def compute_best_route(randomness=0.2, city="Lyon", massif="Chartreuse",
     """
 
     massif_clean = slugify(massif)
+    city_clean = slugify(city)
 
-    stops_path = f"data/output/{massif_clean}_stop_node_mapping.json"
+    stops_path = f"data/output/{massif_clean}_{city_clean}_stop_node_mapping.json"
     graph_path = f"data/output/{massif_clean}_hiking_graph.gpickle"
     poi_file = f"data/output/{massif_clean}_poi_scores.geojson"
     gares_path = "data/input/gares_departs.json"

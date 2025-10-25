@@ -151,7 +151,7 @@ def pipeline_graphe(massif_name, ville_name, script_dir, start_step=0):
     steps = [
         ("Graphe_0.py", [massif_name]),
         ("Graphe_1_POI_fusion.py", [massif_name]),
-        ("Graphe_2_fichiers_finaux.py", [massif_name]),
+        ("Graphe_2_fichiers_finaux.py", [massif_name, ville_name]),
     ]
 
     for i, (script_name, args) in enumerate(steps):
