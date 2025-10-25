@@ -115,6 +115,15 @@ a:hover {
     color: #ffffff;
 }
 
+.modal-content a {
+    color: #19191e;
+    text-decoration: underline;
+}
+
+.modal-content a:hover {
+    color: #ef8409;
+}
+
 /* ======= MAP ======= */
 #map {
   position: absolute;
