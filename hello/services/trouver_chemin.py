@@ -20,9 +20,14 @@ GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 # ---- Calcul du point de départ ----
 
-def get_best_transit_route(randomness=0.25, city="Lyon", departure_time=None, stops_data=None, gares=None):
+def get_best_transit_route(randomness=0.25, city="Lyon", departure_time=None, return_time=None,
+                           stops_data=None, gares=None):
     """
     Sélectionne le meilleur arrêt selon le score et récupère un itinéraire de transport en commun via Google Maps.
+    Ajoute des règles temporelles :
+    - Départ matin/journée : max +6h
+    - Départ soir (>18h) : max +18h
+    - Vérifie que l'arrivée sur place laisse au moins 4h de marche avant le retour
     """
     # --- Calculer le score pour chaque arrêt ---
     scored_stops = []
@@ -33,15 +38,13 @@ def get_best_transit_route(randomness=0.25, city="Lyon", departure_time=None, st
             + 0.5 * props.get("elevation_normalized", 0)
             + 0.1 * props.get("distance_to_pnr_border_normalized", 0)
         )
-        # Ajouter la partie aléatoire
         rand_factor = random.random()
         score_final = (1 - randomness) * score + randomness * rand_factor
         scored_stops.append((score_final, stop_id, stop_info))
 
-    # Trier par score décroissant
-    scored_stops.sort(reverse=True, key=lambda x: x[0])    
+    scored_stops.sort(reverse=True, key=lambda x: x[0])
 
-    # --- Mode mock : charger le fichier et adapter le point de départ ---
+    # --- Mode MOCK ---
     if getattr(settings, "USE_MOCK_ROUTE_CREATION", False):
         best_stop_info = scored_stops[0][2]
         dest_coords = best_stop_info["node"]  # (lon, lat)
@@ -50,18 +53,15 @@ def get_best_transit_route(randomness=0.25, city="Lyon", departure_time=None, st
         with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        # Modifier transit_go 
         if "transit_go" in data["features"][0]["properties"]:
             leg = data["features"][0]["properties"]["transit_go"]["routes"][0]["legs"][0]
-            # chercher le dernier step qui est en TRANSIT
             transit_steps = [s for s in leg["steps"] if s["travelMode"] == "TRANSIT"]
             if transit_steps:
                 last_step = transit_steps[-1]
                 last_step["endLocation"]["latLng"] = {"latitude": dest_coords[0], "longitude": dest_coords[1]}
                 last_step["transitDetails"]["stopDetails"]["arrivalTime"] = (departure_time + timedelta(minutes=120)).isoformat()
-            leg["duration"] = "7200s"  # 2 heures en secondes
+            leg["duration"] = "7200s"
         return data["features"][0]["properties"]["transit_go"]
-    
 
     if city not in gares:
         raise ValueError(f"❌ Ville '{city}' non trouvée dans gares_departs.json")
@@ -69,8 +69,17 @@ def get_best_transit_route(randomness=0.25, city="Lyon", departure_time=None, st
     origin_coords = [gares[city]["latitude"], gares[city]["longitude"]]
     origin = {"latLng": {"latitude": origin_coords[0], "longitude": origin_coords[1]}}
 
-    # --- Parcourir les meilleurs arrêts pour trouver un itinéraire valide ---
-    for score_final, stop_id, stop_info in scored_stops[:10]:  # max 10 essais
+    # --- Parcourir les meilleurs arrêts ---
+
+    # si departure_time est naïf, on le rend aware
+    if departure_time.tzinfo is None:
+        departure_time = departure_time.replace(tzinfo=ZoneInfo("Europe/Paris"))
+
+    # idem pour return_time
+    if return_time.tzinfo is None:
+        return_time = return_time.replace(tzinfo=ZoneInfo("Europe/Paris"))
+
+    for score_final, stop_id, stop_info in scored_stops[:10]:
         dest_coords = stop_info["node"]
         destination = {"latLng": {"latitude": dest_coords[1], "longitude": dest_coords[0]}}
         body = {
@@ -92,15 +101,52 @@ def get_best_transit_route(randomness=0.25, city="Lyon", departure_time=None, st
             r = requests.post(url, headers=headers, json=body)
             r.raise_for_status()
             data = r.json()
-            # Vérifier si un itinéraire a été trouvé
-            if "routes" in data and len(data["routes"]) > 0:
-                return data  # succès
+
+            if "routes" not in data or len(data["routes"]) == 0:
+                print(f"⚠️ Pas d'itinéraire pour l'arrêt {stop_id} ({score_final:.3f})")
+                time.sleep(1) 
+                continue
+
+            # --- Vérification de la fenêtre horaire ---
+            leg = data["routes"][0]["legs"][0]
+            steps = leg.get("steps", [])
+            transit_steps = [s for s in steps if s["travelMode"] == "TRANSIT"]
+            if not transit_steps:
+                print(f"⚠️ Aucun step TRANSIT pour {stop_id}")
+                continue
+
+            dep_time_str = transit_steps[0]["transitDetails"]["stopDetails"]["departureTime"]
+            dep_time = datetime.fromisoformat(dep_time_str).astimezone(ZoneInfo("Europe/Paris"))
+
+            # Fenêtre dynamique
+            max_delay_h = 18 if departure_time.hour >= 18 else 6
+            min_delay_h = -1
+
+            if not (timedelta(hours=min_delay_h) <= dep_time - departure_time <= timedelta(hours=max_delay_h)):
+                print(f"⏰ Départ trop éloigné ({dep_time - departure_time}), on ignore {stop_id}")
+                continue
+
+            # --- Vérification avec heure de retour ---
+            arrival_time_str = transit_steps[-1]["transitDetails"]["stopDetails"]["arrivalTime"]
+            arrival_time = datetime.fromisoformat(arrival_time_str).astimezone(ZoneInfo("Europe/Paris"))
+            est_travel_duration = arrival_time - dep_time
+
+            remaining_walk_time = (return_time - arrival_time) - est_travel_duration
+            if remaining_walk_time.total_seconds() < 4 * 3600:
+                print(f"🚫 Trajet vers {stop_id} trop tard pour le retour (temps de marche <4h)")
+                continue
+
+            # Tout OK
+            print(f"✅ Itinéraire valide trouvé depuis l'arrêt {stop_id} (score={score_final:.3f})")
+            return data
+
         except Exception as e:
-            time.sleep(1) 
+            time.sleep(1)
             print(f"⚠️ Tentative échouée pour l'arrêt {stop_id} ({score_final:.3f}): {e}")
             continue
 
-    raise RuntimeError("Aucun itinéraire de transport en commun trouvé pour les 10 meilleurs arrêts.")
+    raise RuntimeError("Aucun itinéraire de transport en commun trouvé respectant les contraintes temporelles")
+
 
 # ---- Calcul du nombre de kilomètres potentiels ----
 def compute_max_hiking_distance(departure_time: datetime,
@@ -478,6 +524,7 @@ def compute_return_transit(path, return_time, city, G, stops_data, gares):
             break
         else:
             print(f" Aucun transit trouvé depuis l’arrêt {stop_id}.")
+            time.sleep(1) 
 
 
     if return_transit_route is None:
@@ -585,7 +632,7 @@ def compute_best_route(randomness=0.2, city="Lyon", massif="Chartreuse",
     departure_time = datetime.fromisoformat(departure_time)
     return_time = datetime.fromisoformat(return_time)
     # --- Étape 1 : Récupérer l'itinéraire de transport en commun ---
-    travel_go = get_best_transit_route(randomness=randomness, city=city, departure_time=departure_time, stops_data=stops_data, gares=gares)
+    travel_go = get_best_transit_route(randomness=randomness, city=city, departure_time=departure_time, return_time=return_time, stops_data=stops_data, gares=gares)
     # --- Étape 2 : Extraire les coordonnées du dernier point de transit ---
     transit_end = None
     if travel_go:
