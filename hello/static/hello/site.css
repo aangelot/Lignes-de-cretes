@@ -299,5 +299,57 @@ a:hover {
     color: #fff !important;
 }
 
+.custom-elevation-theme {
+  --ele-bg: rgba(25, 25, 30, 0.1);      /* Fond légèrement transparent */
+  --ele-axis: #19191e;                  /* Couleur axes */
+  --ele-area: #ef8409;                  /* Zone sous la courbe */
+  --ele-grid: rgba(25, 25, 30, 0.3);    /* Grille */
+  --ele-brush: rgba(239, 132, 9, 0.3);  /* Sélection du brush */
+  --ele-poly: #19191e;                  /* Courbe polygonale */
+  --ele-line: #ef8409;                  /* Ligne principale */
+  --ele-text: #ffffff;                  /* Texte des labels */
+  --ele-height: 180px;                  /* Hauteur du graphique */
+  --ele-width: 100%;                    /* Largeur du graphique */
+  --ele-radius: 4px;                    /* Coins arrondis */
+}
+
+.elevation-toggle-icon {
+    display: none !important;
+}
+
+.top{
+    display: none !important;
+}
+
+.legend {
+    display: none !important;
+}
+
+.distance {
+    font-family: 'Roboto', sans-serif !important;
+    color: #ffffff !important;
+}
+
+.elevation-control .axis text {
+    fill:#ffffff !important;
+    stroke:none !important;
+    font-size: 12px !important;
+    font-weight: normal !important;
+}
+
+.elevation-summary {
+    display: none !important;
+}
+
+.horizontal-drag-symbol{
+    display: none !important;
+}
+
+.custom-legend {
+    font-size: 0.9rem;
+}
+.custom-legend p {
+    margin: 2px 0;
+}
 
 
