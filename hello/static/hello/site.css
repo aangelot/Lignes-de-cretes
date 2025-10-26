@@ -6,6 +6,7 @@ body {
     font-family: 'Roboto', sans-serif;
     background-color: #19191e;
     color: #ffffff;
+    height: 100%;
 }
 
 header {
@@ -127,22 +128,25 @@ a:hover {
 /* ======= MAP ======= */
 #map {
   position: absolute;
-  top: 70px;   /* sous le header */
+  top: 70px;   
   left: 0;
   right: 0;
-  bottom: 0;   /* s’arrête au bas de la fenêtre */
+  bottom: 0;   
   z-index: 0;
 }
 
 /* Conteneur flottant */
 #modals-container {
   position: absolute;
-  top: 7em;        /* marge par rapport au haut de la carte / header */
-  left: 20px;      /* marge droite */
+  top: 70px;   
+  bottom: 0px;   
+  left: 20px;      
   display: flex;
   flex-direction: column;
-  gap: 10px;        /* espace entre modales */
+  gap: 10px;        
   z-index: 1000;
+  padding: 20px;
+  overflow: visible;
 }
 
 /* Modales */
@@ -154,14 +158,21 @@ a:hover {
   box-shadow: 0 4px 20px rgba(0,0,0,0.4);
   overflow: hidden;
   transition: max-height 0.3s ease, padding 0.3s ease;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Header avec titre + bouton chevron */
 .modal-header {
+  flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0.5em 1em;
+  z-index: 2;
+  top: 0;
+  position: sticky;
+  background-color: #19191e;
 }
 
 .floating-modal .modal-header h3 {
@@ -172,6 +183,25 @@ a:hover {
     gap: 0.5rem; /* espace entre l'emoji et le texte */
     margin: 0;
     color: #ef8409; /* couleur orange du projet */
+}
+
+/* Corps de la modale */
+.modal-body {
+  padding: 1em;
+  flex: 1;
+  scrollbar-width: thin;
+  overflow-y: auto;
+}
+
+.modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+.modal-body::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+.modal-body::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.5);
 }
 
 .toggle-btn {   
@@ -189,10 +219,6 @@ a:hover {
   background: #ef8409;
 }
 
-/* Corps de la modale */
-.modal-body {
-  padding: 1em;
-}
 
 .modal-body h4 {
   margin-top: 0;
