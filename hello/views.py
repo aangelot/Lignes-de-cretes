@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from django.http import JsonResponse
-from hello.services.trouver_chemin import compute_best_route, save_geojson
+from hello.services.trouver_chemin import compute_best_route, save_geojson_gpx
 import traceback
 
 def index(request):
@@ -38,8 +38,7 @@ def get_route(request):
             )
             print("✅ Itinéraire calculé avec succès.")
 
-            # --- Sauvegarde facultative ---
-            save_geojson(geojson_data)
+            save_geojson_gpx(geojson_data)
 
             # --- Réponse JSON ---
             return JsonResponse(geojson_data)

@@ -8,11 +8,13 @@ import os
 from dotenv import load_dotenv
 from typing import Tuple, Dict, Any, List
 from networkx import shortest_path, NetworkXNoPath
-from shapely.geometry import LineString, mapping, Point
+from shapely.geometry import LineString, mapping, Point, shape
 from zoneinfo import ZoneInfo
 from django.conf import settings
 import math
 from hello.management.commands.utils import slugify
+import gpxpy
+import gpxpy.gpx
 
 # ---- Chargement des données ----
 load_dotenv()
@@ -427,11 +429,30 @@ def best_hiking_path(start_coord, max_distance_m, G, poi_data, randomness=0.3, p
     print(f"Distance finale: {best_dist/1000:.2f} km, points: {len(best_path)}, POI visités: {len(visited_pois)}")
     return best_path, best_dist
 
-def save_geojson(data, output_path="data/paths/optimized_routes.geojson"):
+def save_geojson_gpx(data, output_path="data/paths/optimized_routes.geojson"):
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
         print(f"✅ GeoJSON sauvegardé dans {output_path}")
+    with open(output_path, "r") as f:
+        geojson_data = json.load(f)
+    gpx = gpxpy.gpx.GPX()
+    for feature in geojson_data["features"]:
+        geom = shape(feature["geometry"])
+        if geom.geom_type == "LineString":
+            track = gpxpy.gpx.GPXTrack()
+            gpx.tracks.append(track)
+            segment = gpxpy.gpx.GPXTrackSegment()
+            track.segments.append(segment)
+
+            for coord in geom.coords:
+                lon, lat = coord[0], coord[1]
+                ele = coord[2] if len(coord) > 2 else None  # récupère l'altitude si présente
+                segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon, elevation=ele))
+
+    # Sauver en GPX
+    with open("data/paths/optimized_routes.gpx", "w") as f:
+        f.write(gpx.to_xml())
 
 def compute_return_transit(path, return_time, city, G, stops_data, gares):
     """
