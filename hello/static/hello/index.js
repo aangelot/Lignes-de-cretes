@@ -69,6 +69,47 @@ document.addEventListener('DOMContentLoaded', () => {
     let arrowDecorator = null;
     let controlElevation = null;
 
+    // Vérification des dates
+    const depInput = document.getElementById('departure_datetime');
+    const retInput = document.getElementById('return_datetime');
+    const submitBtn = document.getElementById('submit-btn');
+    const errorDiv = document.getElementById('date-error');
+
+    function validateDates() {
+        const departure = new Date(depInput.value);
+        const arrival = new Date(retInput.value);
+        const now = new Date();
+        const maxDate = new Date();
+        maxDate.setDate(now.getDate() + 100);
+
+        let message = '';
+        let isValid = true;
+
+        if (depInput.value && departure > maxDate) {
+            message = "❌ La date de départ ne peut pas dépasser 100 jours à partir d'aujourd'hui.";
+            isValid = false;
+        } else if (retInput.value && arrival > maxDate) {
+            message = "❌ La date de retour ne peut pas dépasser 100 jours à partir d'aujourd'hui.";
+            isValid = false;
+        } else if (depInput.value && retInput.value && departure >= arrival) {
+            message = "❌ La date de départ doit être avant la date de retour.";
+            isValid = false;
+        } else if (depInput.value && retInput.value) {
+            const diffDays = (arrival - departure) / (1000*60*60*24);
+            if (diffDays > 10) {
+                message = `❌ L'écart entre départ et retour ne peut pas dépasser 10 jours (vous avez choisi ${Math.round(diffDays)} jours).`;
+                isValid = false;
+            }
+        }
+
+        errorDiv.textContent = message;
+        submitBtn.disabled = !isValid;
+    }
+
+    // Ecouteurs dynamiques
+    depInput.addEventListener('input', validateDates);
+    retInput.addEventListener('input', validateDates);
+
     // Crée le control d'élévation dans la modale Résumé
     function initElevationInSummary() {
         const summaryModal = document.getElementById('modal-summary');
