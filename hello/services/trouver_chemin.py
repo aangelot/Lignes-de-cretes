@@ -51,7 +51,7 @@ def get_best_transit_route(randomness=0.25, city="Lyon", departure_time=None, re
         best_stop_info = scored_stops[0][2]
         dest_coords = best_stop_info["node"]  # (lon, lat)
 
-        file_path = os.path.join(settings.BASE_DIR, "data/paths/optimized_routes_example.geojson")
+        file_path = os.path.join(settings.BASE_DIR, "hello/static/hello/data/optimized_routes_example.geojson")
         with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
@@ -429,7 +429,7 @@ def best_hiking_path(start_coord, max_distance_m, G, poi_data, randomness=0.3, p
     print(f"Distance finale: {best_dist/1000:.2f} km, points: {len(best_path)}, POI visités: {len(visited_pois)}")
     return best_path, best_dist
 
-def save_geojson_gpx(data, output_path="data/paths/optimized_routes.geojson"):
+def save_geojson_gpx(data, output_path="hello/static/hello/data/optimized_routes.geojson"):
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
@@ -451,7 +451,7 @@ def save_geojson_gpx(data, output_path="data/paths/optimized_routes.geojson"):
                 segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon, elevation=ele))
 
     # Sauver en GPX
-    with open("data/paths/optimized_routes.gpx", "w") as f:
+    with open("hello/static/hello/data/optimized_routes.gpx", "w") as f:
         f.write(gpx.to_xml())
 
 def compute_return_transit(path, return_time, city, G, stops_data, gares):
@@ -488,7 +488,7 @@ def compute_return_transit(path, return_time, city, G, stops_data, gares):
         if getattr(settings, "USE_MOCK_ROUTE_CREATION", False):
             # --- MODE MOCK ---
             print(" Mode MOCK activé : lecture d’un itinéraire simulé.")
-            file_path = os.path.join(settings.BASE_DIR, "data/paths/optimized_routes_example.geojson")
+            file_path = os.path.join(settings.BASE_DIR, "hello/static/hello/data/optimized_routes_example.geojson")
             with open(file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
@@ -654,7 +654,7 @@ def compute_best_route(randomness=0.2, city="Lyon", massif="Chartreuse",
 
 
     if getattr(settings, "USE_MOCK_DATA", False):
-        file_path = os.path.join(settings.BASE_DIR, "data/paths/optimized_routes_example.geojson")
+        file_path = os.path.join(settings.BASE_DIR, "hello/static/hello/data/optimized_routes_example.geojson")
         with open(file_path, "r", encoding="utf-8") as f:
             return json.load(f)
         
