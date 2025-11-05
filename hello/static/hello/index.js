@@ -291,7 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
             summaryModal.innerHTML = `
                 <div class="modal-header">
                     <h3>🗺️ Distance et dénivelé</h3>
-                    <button class="toggle-btn">▼</button>
+                    <button class="toggle-btn">▲</button>
                 </div>
                 <div class="modal-body">
                     <div id="elevation-div"></div>
@@ -300,31 +300,30 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             initElevationInSummary();
 
+            // État initial : Résumé déplié
+            summaryModal.classList.remove('collapsed');
+            summaryModal.querySelector('.toggle-btn').textContent = '▲';
 
-            // Modales Aller / Retour
-            ['go','back'].forEach(type => {
+            // === Modales Aller / Retour ===
+            ['go', 'back'].forEach(type => {
                 const modal = document.getElementById('modal-' + type);
                 modal.innerHTML = `
                     <div class="modal-header">
                         <h3>${type === 'go' ? '➡️🚊 Aller' : '⬅️🚊 Retour'}</h3>
-                        <button class="toggle-btn">▲</button>
+                        <button class="toggle-btn">▼</button>
                     </div>
                     <div class="modal-body"></div>
                 `;
-            
 
-                if (props['transit_' + type]) 
+                if (props['transit_' + type]) {
                     afficherTransit(props['transit_' + type], modal.querySelector('.modal-body'));
-
-                // Etat initial : Aller déplié, Résumé et Retour pliés
-                if (type === 'go') {
-                    modal.classList.remove('collapsed'); // déplié
-                    modal.querySelector('.toggle-btn').textContent = '▲';
-                } else {
-                    modal.classList.add('collapsed'); // plié
-                    modal.querySelector('.toggle-btn').textContent = '▼';
                 }
+
+                // État initial : Aller et Retour repliés
+                modal.classList.add('collapsed');
+                modal.querySelector('.toggle-btn').textContent = '▼';
             });
+
 
             // === Attacher toggles exclusifs à toutes les modales ===
             ['go','back','summary'].forEach(type => {
