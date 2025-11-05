@@ -333,9 +333,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
             currentLayer.eachLayer(layer => {
                 const coords = layer.getLatLngs();
-                const startIcon = L.icon({ iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png", iconSize: [25, 41], iconAnchor: [12, 41] });
-                const endIcon = L.icon({ iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-orange.png", iconSize: [25, 41], iconAnchor: [12, 41] });
+                // Définir les icônes personnalisées
+                const startIcon = L.icon({
+                    iconUrl: '/static/hello/path_to_start_image.png', // chemin relatif à la racine du serveur
+                    iconSize: [50, 50],
+                    iconAnchor: [25, 50],
+                    popupAnchor: [0, -50]
+                });
 
+                const endIcon = L.icon({
+                    iconUrl: '/static/hello/path_to_end_image.png',
+                    iconSize: [50, 50],
+                    iconAnchor: [25, 50],
+                    popupAnchor: [0, -50]
+                });
+
+                // Ajouter les marqueurs avec les icônes personnalisées
                 startMarker = L.marker(coords[0], { icon: startIcon }).addTo(map).bindPopup("Départ");
                 endMarker = L.marker(coords[coords.length-1], { icon: endIcon }).addTo(map).bindPopup("Arrivée");
 
