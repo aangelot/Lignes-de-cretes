@@ -241,37 +241,58 @@ a:hover {
 }
 
 /* Formulaire à l’intérieur */
-#trek-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75em;
+.text-form p {
+  line-height: 1.6;
+  margin: 20px 0;
 }
 
-#trek-form label {
-  font-weight: 500;
-  font-size: 0.9em;
-  color: #ffffff;
-}
-
-#trek-form input[type="datetime-local"],
-#trek-form select,
-#trek-form input[type="range"] {
-  padding: 0.6em 0.8em;
-  font-size: 0.95em;
-  border-radius: 6px;
-  border: 1px solid #333;
+.text-form input[type="datetime-local"] {
   background-color: #19191e;
-  color: #ffffff;
-  outline: none;
-  transition: all 0.2s ease-in-out;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.2em 0.5em;
+  font-size: 0.95em;
+  color-scheme: dark;
 }
 
-#trek-form input[type="datetime-local"]:focus,
-#trek-form select:focus,
-#trek-form input[type="range"]:focus {
-  border-color: #ef8409;
-  box-shadow: 0 0 5px rgba(239, 132, 9, 0.5);
+.text-form select {
+  appearance: auto;            /* Réactive les flèches sur Chrome */
+  -webkit-appearance: menulist; /* Compatibilité Webkit */
+  background-color: #19191e;
+  color: #fff;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 0.3em 0.6em;
+  font-size: 0.95em;
+  cursor: pointer;
 }
+
+/* Flèche visible + contraste au survol */
+.text-form select:hover {
+  background-color: #222;
+}
+
+.text-form input[type="range"] {
+  width: 100%;
+  margin-top: 0.5em;
+}
+
+.text-form button {
+  background-color: #ef8409;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5em 1em;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color 0.3s;
+}
+
+.text-form button:hover {
+  background-color: #d77307;
+}
+
 
 /* Style du contrôleur de couches Leaflet */
 .leaflet-control-layers {

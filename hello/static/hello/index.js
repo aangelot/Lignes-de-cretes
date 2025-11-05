@@ -1,5 +1,33 @@
-document.addEventListener('DOMContentLoaded', () => {
+function setDefaultDates() {
+  const depInput = document.getElementById("departure_datetime");
+  const retInput = document.getElementById("return_datetime");
+  if (!depInput || !retInput) return;
 
+  const now = new Date();
+
+  // Trouver le prochain samedi (6 = samedi)
+  const nextSaturday = new Date(now);
+  nextSaturday.setDate(now.getDate() + ((6 - now.getDay() + 7) % 7));
+  nextSaturday.setHours(8, 0, 0, 0);
+
+  // Prochain dimanche
+  const nextSunday = new Date(nextSaturday);
+  nextSunday.setDate(nextSaturday.getDate() + 1);
+  nextSunday.setHours(20, 0, 0, 0);
+
+  // Formater en "YYYY-MM-DDTHH:MM" selon la timezone locale
+  const fmtLocal = (d) => {
+    const pad = (n) => n.toString().padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  depInput.value = fmtLocal(nextSaturday);
+  retInput.value = fmtLocal(nextSunday);
+}
+
+
+document.addEventListener('DOMContentLoaded', () => {
+    setDefaultDates();
     // === Modale info ===
     const infoBtn = document.getElementById('infoBtn');
     const infoModal = document.getElementById('infoModal');
@@ -33,18 +61,13 @@ document.addEventListener('DOMContentLoaded', () => {
     map.zoomControl.remove();
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
+
     // === Variables globales ===
     let currentLayer = null;
     let startMarker = null;
     let endMarker = null;
     let arrowDecorator = null;
     let controlElevation = null;
-
-    // Slider randomness
-    const slider = document.getElementById('randomness');
-    const display = document.getElementById('randomness-value');
-    display.textContent = slider.value;
-    slider.addEventListener('input', () => display.textContent = slider.value);
 
     // Crée le control d'élévation dans la modale Résumé
     function initElevationInSummary() {
