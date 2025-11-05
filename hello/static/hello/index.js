@@ -266,7 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // === Toggle exclusif pour toutes les modales ===
     function addToggleExclusive(modal) {
-        const btn = modal.querySelector('.toggle-btn');
+        const btn = modal.querySelector('.modal-header');
         if (!btn) return;
 
         btn.addEventListener('click', () => {
