@@ -216,10 +216,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         const link = t.transitLine.agencies[0].uri;
 
                         // Affichage infos
-                        container.innerHTML += `<p>
-                            Prendre le ${vehicle} ${line} à ${depStop} à ${depTime}, direction ${headsign}, arrivée à ${arrStop} à ${arrTime}. 
+                        container.innerHTML += `
+                        <p>
+                            🏁 <strong>${depStop}</strong> à <strong>${depTime}</strong> : prendre 
+                            <strong>${vehicle} ${line}</strong><br>
+                            Direction <strong>${headsign}</strong><br> 
+                            🎯 Arrivée à <strong>${arrStop}</strong> à <strong>${arrTime}</strong>.<br>
                             Plus d'informations sur le <a href="${link}" target="_blank">site de l'agence</a>.
-                        </p>`;
+                        </p>
+                        `;
 
                         
                     }
