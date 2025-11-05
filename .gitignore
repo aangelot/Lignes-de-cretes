@@ -182,3 +182,4 @@ cython_debug/
 data/*
 !data/.gitkeep
 hello/management/commands/test_API.py
+hello/static/hello/data/*
