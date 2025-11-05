@@ -395,6 +395,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 addToggleExclusive(modal);
             });
 
+            // === Ajouter bouton GPX ===
+            const container = document.getElementById('modals-container');
+
+            const gpxBtn = document.createElement('button');
+            gpxBtn.textContent = '📥 Télécharger le tracé GPX';
+            gpxBtn.className = 'highlight';
+            gpxBtn.style.marginTop = '1em'; // un peu d'espace au-dessus
+            gpxBtn.addEventListener('click', () => {
+                const link = document.createElement('a');
+                link.href = '/static/hello/data/optimized_routes.gpx'; // chemin vers ton GPX
+                link.download = 'optimized_routes.gpx';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            });
+
+            container.appendChild(gpxBtn);
+
+
         } catch (err) {
             alert(err.message);
             console.error(err);
