@@ -60,7 +60,7 @@ def get_best_transit_route(randomness=0.25, city="Lyon", departure_time=None, re
             transit_steps = [s for s in leg["steps"] if s["travelMode"] == "TRANSIT"]
             if transit_steps:
                 last_step = transit_steps[-1]
-                last_step["endLocation"]["latLng"] = {"latitude": dest_coords[0], "longitude": dest_coords[1]}
+                last_step["endLocation"]["latLng"] = {"latitude": dest_coords[1], "longitude": dest_coords[0]}
                 last_step["transitDetails"]["stopDetails"]["arrivalTime"] = (departure_time + timedelta(minutes=120)).isoformat()
             leg["duration"] = "7200s"
         return data["features"][0]["properties"]["transit_go"]
