@@ -16,6 +16,7 @@ geographiclib==2.0
 geohexgrid==2.1.1
 geopandas==1.0.1
 geopy==2.4.1
+gpxpy==1.6.2
 idna==3.10
 Jinja2==3.1.6
 joblib==1.4.2
