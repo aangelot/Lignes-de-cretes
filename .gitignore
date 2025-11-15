@@ -181,5 +181,5 @@ cython_debug/
 #data 
 data/*
 !data/.gitkeep
-hello/management/commands/test_API.py
 hello/static/hello/data/
+
