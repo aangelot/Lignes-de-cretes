@@ -415,14 +415,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // === Ajouter bouton GPX ===
             const container = document.getElementById('modals-container');
+            const oldBtn = document.getElementById('gpx-download-btn');
+            if (oldBtn) oldBtn.remove();
 
             const gpxBtn = document.createElement('button');
+            gpxBtn.id = 'gpx-download-btn'; // identifiant pour pouvoir le retrouver
             gpxBtn.textContent = '📥 Télécharger le tracé GPX';
             gpxBtn.className = 'highlight';
-            gpxBtn.style.marginTop = '1em'; // un peu d'espace au-dessus
+            gpxBtn.style.marginTop = '1em';
+
             gpxBtn.addEventListener('click', () => {
                 const link = document.createElement('a');
-                link.href = '/static/hello/data/optimized_routes.gpx'; // chemin vers ton GPX
+                link.href = '/static/hello/data/optimized_routes.gpx';
                 link.download = 'optimized_routes.gpx';
                 document.body.appendChild(link);
                 link.click();
