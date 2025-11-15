@@ -275,8 +275,14 @@ def best_hiking_path(start_coord, max_distance_m, G, poi_data, randomness=0.3, p
       si le meilleur n'est pas utilisable (pas de chemin, croisement, dépassement), on teste le suivant
     - si aucun POI accepté après 10 essais et croisement uniquement, on repêche le premier POI croisé
     - ajoute tous les POI à moins de 1000 m du segment au set des POI visités
+    - marque toutes les arêtes parcourues
     Retour : (best_path_nodes, best_dist_m)
     """
+
+    import random
+    from shapely.geometry import LineString, Point
+    from networkx import NetworkXNoPath
+
     # --- Préparer POI avec randomisation ---
     pois = []
     for feat in poi_data.get("features", []):
@@ -298,7 +304,7 @@ def best_hiking_path(start_coord, max_distance_m, G, poi_data, randomness=0.3, p
     visited_edges = set()
     max_candidate_trials = 10
 
-    # fonction de coût dynamique
+    # fonction de coût dynamique avec pénalisation des arêtes déjà visitées
     def edge_cost(u, v, d):
         cost = d["length"] / (d.get("score", 0.0) + 1e-6)
         if (u, v) in visited_edges or (v, u) in visited_edges:
@@ -324,10 +330,11 @@ def best_hiking_path(start_coord, max_distance_m, G, poi_data, randomness=0.3, p
 
         # --- Trier par score ---
         candidates_sorted = sorted(candidates, key=lambda p: p["score"], reverse=True)
+
         accepted = False
         trials = 0
         first_crossed_poi = None
-        all_over_budget = True  # ← ajout : pour détecter le cas où tous les POI dépassent la distance max
+        all_over_budget = True
 
         for poi in candidates_sorted:
             if trials >= max_candidate_trials:
@@ -348,7 +355,7 @@ def best_hiking_path(start_coord, max_distance_m, G, poi_data, randomness=0.3, p
                 print(f"  - Erreur lors du calcul du chemin vers {poi['id']}: {e}. On essaie le suivant.")
                 continue
 
-            # distance réelle du segment
+            # --- Calcul distance réelle du segment ---
             seg_len = 0.0
             bad_length = False
             for u, v in zip(path_nodes[:-1], path_nodes[1:]):
@@ -364,9 +371,9 @@ def best_hiking_path(start_coord, max_distance_m, G, poi_data, randomness=0.3, p
                 print(f"  - Le segment vers {poi['id']} dépasse le budget restant. On essaie le suivant.")
                 continue
             else:
-                all_over_budget = False  # au moins un POI est dans le budget
+                all_over_budget = False
 
-            # vérifier croisement
+            # --- Vérification croisement ---
             crosses = path_has_crossing(best_path, path_nodes)
             if crosses:
                 print(f"  - Rejeté: le segment vers {poi['id']} croise le chemin existant.")
@@ -374,15 +381,14 @@ def best_hiking_path(start_coord, max_distance_m, G, poi_data, randomness=0.3, p
                     first_crossed_poi = (poi, path_nodes, seg_len)
                 continue
 
-            # OK : on accepte ce POI
-            print(f"  + Accepté : POI {poi['id']} (seg_len={seg_len:.1f} m).")
+            # --- Acceptation normale ---
+            accepted = True
             best_path.extend(path_nodes[1:])
             best_dist += seg_len
             current_node = path_nodes[-1]
             visited_pois.add(poi["id"])
-            accepted = True
 
-            # --- Ajouter tous les POI à moins de 1000 m du segment ---
+            # --- Ajouter POI proches du segment et marquer arêtes ---
             if len(path_nodes) >= 2:
                 line_geom = LineString(path_nodes)
                 for other_poi in pois:
@@ -391,23 +397,21 @@ def best_hiking_path(start_coord, max_distance_m, G, poi_data, randomness=0.3, p
                         if line_geom.distance(pt) <= 1000 / 111320:  # m -> degrés approx
                             visited_pois.add(other_poi["id"])
                             print(f"    - POI ajouté par proximité <1000m : {other_poi['id']}")
-
-            # --- Marquer arêtes visitées ---
             for u, v in zip(path_nodes[:-1], path_nodes[1:]):
                 visited_edges.add((u, v))
+            break
 
-            break  # étape suivante
-
-        # --- Si aucun POI accepté et qu'on a un POI croisé, on le repêche ---
+        # --- Repêchage POI croisé ---
         if not accepted and first_crossed_poi is not None:
             poi, path_nodes, seg_len = first_crossed_poi
             print(f"⚠ Aucun POI accepté après {max_candidate_trials} essais ; on reprend malgré croisement : {poi['id']}")
+            accepted = True
             best_path.extend(path_nodes[1:])
             best_dist += seg_len
             current_node = path_nodes[-1]
             visited_pois.add(poi["id"])
-            accepted = True
 
+            # Ajouter POI proches et marquer arêtes
             if len(path_nodes) >= 2:
                 line_geom = LineString(path_nodes)
                 for other_poi in pois:
@@ -416,11 +420,47 @@ def best_hiking_path(start_coord, max_distance_m, G, poi_data, randomness=0.3, p
                         if line_geom.distance(pt) <= 1000 / 111320:
                             visited_pois.add(other_poi["id"])
                             print(f"    - POI ajouté par proximité <1000m : {other_poi['id']}")
-
             for u, v in zip(path_nodes[:-1], path_nodes[1:]):
                 visited_edges.add((u, v))
 
-        # --- Nouvelle condition : si les 10 essais ont échoué parce que tous les POI dépassent le budget, on sort ---
+        # --- Mode secours première étape ---
+        if step == 1 and not accepted:
+            print("⚠ Aucun POI accepté à la première étape. Activation du mode secours.")
+            for poi in candidates_sorted:
+                poi_node = find_nearest_node(G, poi["coord"][::-1])
+                try:
+                    path_nodes = shortest_path(G, current_node, poi_node)
+                except:
+                    continue
+
+                seg_len = sum(G[u][v].get("length", 0) for u, v in zip(path_nodes[:-1], path_nodes[1:]))
+
+                if best_dist + seg_len <= max_distance_m:
+                    print(f"  + Secours: POI '{poi['id']}' accepté.")
+                    accepted = True
+                    best_path.extend(path_nodes[1:])
+                    best_dist += seg_len
+                    current_node = path_nodes[-1]
+                    visited_pois.add(poi["id"])
+
+                    # Ajouter POI proches et marquer arêtes
+                    if len(path_nodes) >= 2:
+                        line_geom = LineString(path_nodes)
+                        for other_poi in pois:
+                            if other_poi["id"] not in visited_pois:
+                                pt = Point(other_poi["coord"])
+                                if line_geom.distance(pt) <= 1000 / 111320:
+                                    visited_pois.add(other_poi["id"])
+                                    print(f"    - POI ajouté par proximité <1000m : {other_poi['id']}")
+                    for u, v in zip(path_nodes[:-1], path_nodes[1:]):
+                        visited_edges.add((u, v))
+                    break
+
+            if not accepted:
+                print("🚫 Mode secours impossible: aucun POI atteignable dans le budget.")
+            break  # sortir après première étape
+
+        # --- Sortir si tous les POI dépassent la distance max ---
         if not accepted and all_over_budget:
             print("🚫 Tous les POI dépassent la distance max — arrêt de la recherche.")
             break
@@ -428,6 +468,8 @@ def best_hiking_path(start_coord, max_distance_m, G, poi_data, randomness=0.3, p
     print("\n=== Recherche terminée ===")
     print(f"Distance finale: {best_dist/1000:.2f} km, points: {len(best_path)}, POI visités: {len(visited_pois)}")
     return best_path, best_dist
+
+
 
 def save_geojson_gpx(data, output_path="hello/static/hello/data/optimized_routes.geojson"):
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
