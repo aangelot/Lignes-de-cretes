@@ -107,7 +107,7 @@ def pipeline_arrets(massif_name, ville_name, script_dir, start_step=0):
                 return
 
         if script_name == "Arrets_2_calcul_retour.py":
-            inter_path = f"data/intermediate/{slug_massif}__{slug_ville}_arrets.geojson"
+            inter_path = f"data/intermediate/{slug_massif}_{slug_ville}_arrets.geojson"
             if not os.path.exists(inter_path):
                 print(f"❌ Fichier introuvable (nécessaire pour Arrets_2) : {inter_path}")
                 return
