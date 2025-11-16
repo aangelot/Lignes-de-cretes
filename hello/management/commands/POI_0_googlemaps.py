@@ -43,8 +43,8 @@ def fetch_pois(massif: str):
     fichier_geojson = "data/input/PNR_coord_max.geojson"
     bbox = lire_bbox_pnr(fichier_geojson, massif)
 
-    pas_lat = 0.02
-    pas_lng = 0.02
+    pas_lat = 0.04
+    pas_lng = 0.04
     grille_points = generer_grille(bbox, pas_lat, pas_lng)
 
     print(f"👉 {len(grille_points)} points générés pour la grille.")
@@ -71,16 +71,12 @@ def fetch_pois(massif: str):
                 "garden",
                 "historical_landmark",
                 "national_park",
-                "historical_place",
-                "cultural_landmark",
-                "monument",
-                "museum"
             ],
             "maxResultCount": 20,
             "locationRestriction": {
                 "circle": {
                     "center": {"latitude": center_lat, "longitude": center_lng},
-                    "radius": 2500
+                    "radius": 5000
                 }
             }
         }
