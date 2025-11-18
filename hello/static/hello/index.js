@@ -38,7 +38,14 @@ document.addEventListener('DOMContentLoaded', () => {
     window.onclick = e => { if (e.target === infoModal) infoModal.style.display = 'none'; };
 
     // === Initialisation de la carte ===
-    const map = L.map('map').setView([45.36, 5.79], 12);
+    const map = L.map('map');
+    const bounds = [
+    [45.95, 4.60],
+    [44.95, 6.90]
+    ];
+    map.fitBounds(bounds);
+
+
 
     const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors'
