@@ -361,14 +361,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const startIcon = L.icon({
                     iconUrl: '/static/hello/path_to_start_image.png', // chemin relatif à la racine du serveur
                     iconSize: [50, 50],
-                    iconAnchor: [25, 50],
+                    iconAnchor: [25, 25],
                     popupAnchor: [0, -50]
                 });
 
                 const endIcon = L.icon({
                     iconUrl: '/static/hello/path_to_end_image.png',
                     iconSize: [50, 50],
-                    iconAnchor: [25, 50],
+                    iconAnchor: [25, 25],
                     popupAnchor: [0, -50]
                 });
 
