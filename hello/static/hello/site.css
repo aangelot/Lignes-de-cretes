@@ -242,24 +242,31 @@ a:hover {
 }
 
 /* Formulaire à l’intérieur */
+/* Paragraphes du formulaire */
 .text-form p {
   line-height: 1.6;
   margin: 20px 0;
+  position: relative;
 }
 
-.text-form input[type="datetime-local"] {
+/* Champs datetime */
+.text-form input[type="datetime-local"],
+.text-form input[type="text"] {
   background-color: #19191e;
   color: #fff;
   border: none;
   border-radius: 6px;
   padding: 0.2em 0.5em;
   font-size: 0.95em;
+  width: 100%;              /* Empêche de dépasser */
+  box-sizing: border-box;   /* Respect des marges internes */
   color-scheme: dark;
 }
 
+/* Select */
 .text-form select {
-  appearance: auto;            /* Réactive les flèches sur Chrome */
-  -webkit-appearance: menulist; /* Compatibilité Webkit */
+  appearance: auto;
+  -webkit-appearance: menulist;
   background-color: #19191e;
   color: #fff;
   border: 1px solid #333;
@@ -267,7 +274,45 @@ a:hover {
   padding: 0.3em 0.6em;
   font-size: 0.95em;
   cursor: pointer;
+  max-width: 100%;          /* Ne déborde plus */
+  box-sizing: border-box;
 }
+
+/* Bloc optionnel */
+#optional-fields {
+  padding-left: 0.5em;
+  border-left: 2px solid #333;
+  margin-top: 1em;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+#optional-fields-header {
+  margin-top: 1.5em;
+}
+
+.suggestions {
+  background: #1c1c21;
+  border: 1px solid #333;
+  border-radius: 6px;
+  margin-top: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+  display: none;
+  z-index: 1000;
+  width: calc(100% - 2px);
+}
+
+.suggestions div {
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.suggestions div:hover {
+  background: #2b2b31;
+}
+
+
 
 /* Flèche visible + contraste au survol */
 .text-form select:hover {

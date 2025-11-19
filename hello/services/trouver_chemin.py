@@ -6,9 +6,9 @@ import time
 from datetime import datetime, timedelta, time as dtime
 import os
 from dotenv import load_dotenv
-from typing import Tuple, Dict, Any, List
-from networkx import shortest_path, NetworkXNoPath
-from shapely.geometry import LineString, mapping, Point, shape
+from typing import Dict
+from networkx import shortest_path
+from shapely.geometry import LineString, mapping, shape
 from zoneinfo import ZoneInfo
 from django.conf import settings
 import math
@@ -20,10 +20,34 @@ import gpxpy.gpx
 load_dotenv()
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_API_KEY")  
 
+def geocode_address(address: str):
+    """
+    Géocode une adresse en latitude/longitude via la Base Adresse Nationale.
+    Renvoie [latitude, longitude] si trouvé, sinon None.
+    """
+    url = "https://api-adresse.data.gouv.fr/search/"
+    params = {
+        "q": address,
+        "limit": 1
+    }
+    try:
+        response = requests.get(url, params=params, timeout=5)
+        response.raise_for_status()
+        data = response.json()
+        features = data.get("features", [])
+        if features:
+            coords = features[0]["geometry"]["coordinates"]
+            # API BAN renvoie [lon, lat]
+            return [coords[1], coords[0]]
+        return None
+    except Exception as e:
+        print(f"Erreur géocodage adresse '{address}': {e}")
+        return None
+
 # ---- Calcul du point de départ ----
 
 def get_best_transit_route(randomness=0.25, city="Lyon", departure_time=None, return_time=None,
-                           stops_data=None, gares=None):
+                           stops_data=None, gares=None, address='', transit_priority="balanced"):
     """
     Sélectionne le meilleur arrêt selon le score et récupère un itinéraire de transport en commun via Google Maps.
     Ajoute des règles temporelles :
@@ -33,18 +57,40 @@ def get_best_transit_route(randomness=0.25, city="Lyon", departure_time=None, re
     """
     # --- Calculer le score pour chaque arrêt ---
     scored_stops = []
+    TRANSIT_WEIGHTS = {
+        "balanced": {
+            "duration": 0.4,
+            "elevation": 0.3,
+            "nature": 0.3
+        },
+        "fast": {
+            "duration": 0.8,
+            "elevation": 0.1,
+            "nature": 0.1
+        },
+        "deep_nature": {
+            "duration": 0.2,
+            "elevation": 0.3,
+            "nature": 0.5
+        }
+    }
+
+    weights = TRANSIT_WEIGHTS.get(transit_priority, TRANSIT_WEIGHTS["balanced"])
+
     for stop_id, stop_info in stops_data.items():
         props = stop_info.get("properties", {})
         score = (
-            0.4 * (1 - props.get("duration_min_go_normalized", 0))
-            + 0.5 * props.get("elevation_normalized", 0)
-            + 0.1 * props.get("distance_to_pnr_border_normalized", 0)
+            weights["duration"] * (1 - props.get("duration_min_go_normalized", 0))
+            + weights["elevation"] * props.get("elevation_normalized", 0)
+            + weights["nature"] * props.get("distance_to_pnr_border_normalized", 0)
         )
         rand_factor = random.random()
         score_final = (1 - randomness) * score + randomness * rand_factor
         scored_stops.append((score_final, stop_id, stop_info))
-
+    
+    scored_stops = [x for x in scored_stops if isinstance(x, tuple) and len(x) > 0 and isinstance(x[0], (int, float))]
     scored_stops.sort(reverse=True, key=lambda x: x[0])
+    print(scored_stops[0:2])
 
     # --- Mode MOCK ---
     if getattr(settings, "USE_MOCK_ROUTE_CREATION", False):
@@ -68,8 +114,17 @@ def get_best_transit_route(randomness=0.25, city="Lyon", departure_time=None, re
     if city not in gares:
         raise ValueError(f"❌ Ville '{city}' non trouvée dans gares_departs.json")
 
-    origin_coords = [gares[city]["latitude"], gares[city]["longitude"]]
-    origin = {"latLng": {"latitude": origin_coords[0], "longitude": origin_coords[1]}}
+    if address:
+        address_coords = geocode_address(address)
+        if address_coords:
+            origin = {"latLng": {"latitude": address_coords[0], "longitude": address_coords[1]}}
+        else:
+            print(f"Adresse non géocodée, utilisation du centre de {city}")
+            origin_coords = [gares[city]["latitude"], gares[city]["longitude"]]
+            origin = {"latLng": {"latitude": origin_coords[0], "longitude": origin_coords[1]}}
+    else:
+        origin_coords = [gares[city]["latitude"], gares[city]["longitude"]]
+        origin = {"latLng": {"latitude": origin_coords[0], "longitude": origin_coords[1]}}
 
     # --- Parcourir les meilleurs arrêts ---
 
@@ -396,7 +451,6 @@ def best_hiking_path(start_coord, max_distance_m, G, poi_data, randomness=0.3, p
                         pt = Point(other_poi["coord"])
                         if line_geom.distance(pt) <= 1000 / 111320:  # m -> degrés approx
                             visited_pois.add(other_poi["id"])
-                            print(f"    - POI ajouté par proximité <1000m : {other_poi['id']}")
             for u, v in zip(path_nodes[:-1], path_nodes[1:]):
                 visited_edges.add((u, v))
             break
@@ -496,7 +550,7 @@ def save_geojson_gpx(data, output_path="hello/static/hello/data/optimized_routes
     with open("hello/static/hello/data/optimized_routes.gpx", "w") as f:
         f.write(gpx.to_xml())
 
-def compute_return_transit(path, return_time, city, G, stops_data, gares):
+def compute_return_transit(path, return_time, city, G, stops_data, gares, address):
     """
     Calcule le trajet retour en transport en commun depuis le dernier point du path jusqu'à la ville.
     Ajoute également la marche jusqu'au premier arrêt de TC dans le path.
@@ -526,6 +580,17 @@ def compute_return_transit(path, return_time, city, G, stops_data, gares):
         origin = {"location": {"latLng": {"latitude": stop_coord[1], "longitude": stop_coord[0]}}}
         city_coords = [gares[city]["latitude"], gares[city]["longitude"]]
         destination = {"location": {"latLng": {"latitude": city_coords[0], "longitude": city_coords[1]}}}
+
+        if address:
+            address_coords = geocode_address(address)
+            if address_coords:
+                destination = {"location": {"latLng": {"latitude": address_coords[0], "longitude": address_coords[1]}}}
+            else:
+                print(f"Adresse non géocodée, utilisation du centre de {city}")
+                destination = {"location": {"latLng": {"latitude": city_coords[0], "longitude": city_coords[1]}}}
+        else:
+            destination = {"location": {"latLng": {"latitude": city_coords[0], "longitude": city_coords[1]}}}
+
 
         if getattr(settings, "USE_MOCK_ROUTE_CREATION", False):
             # --- MODE MOCK ---
@@ -662,9 +727,16 @@ def compute_total_ascent(elevations, min_diff=2):
     return round(total_ascent)
 
 # ---- Fonction principale combinée ----
-def compute_best_route(randomness=0.2, city="Lyon", massif="Chartreuse",
-                       departure_time: datetime = None, return_time: datetime = None,
-                       level: str = "intermediaire"):    
+def compute_best_route(
+    randomness=0.2,
+    city="Lyon",
+    massif="Chartreuse",
+    departure_time: datetime = None,
+    return_time: datetime = None,
+    level: str = "intermediaire",
+    address: str = "",
+    transit_priority: str = "balanced",
+):
     """
     Planifie une randonnée en utilisant le meilleur itinéraire en transport .replace(tzinfo=None)en commun pour atteindre le départ.
     """
@@ -707,7 +779,7 @@ def compute_best_route(randomness=0.2, city="Lyon", massif="Chartreuse",
         stop_info.setdefault("failure_count", 0) #compteur d'échecs pour possible suppression d'un arrêt inatteignable
 
     # --- Étape 1 : Récupérer l'itinéraire de transport en commun ---
-    travel_go = get_best_transit_route(randomness=randomness, city=city, departure_time=departure_time, return_time=return_time, stops_data=stops_data, gares=gares)
+    travel_go = get_best_transit_route(randomness=randomness, city=city, departure_time=departure_time, return_time=return_time, stops_data=stops_data, gares=gares, address=address, transit_priority=transit_priority)
     # --- Étape 2 : Extraire les coordonnées du dernier point de transit ---
     transit_end = None
     if travel_go:
@@ -727,7 +799,7 @@ def compute_best_route(randomness=0.2, city="Lyon", massif="Chartreuse",
     path, dist = best_hiking_path(start_coord=(transit_end[0], transit_end[1]), max_distance_m=max_distance_m, G=G, poi_data=poi_data,randomness=randomness)
     print(f"Distance de randonnée planifiée : {dist/1000:.1f} km")
     # --- Étape 5 : Calculer l'itinéraire retour en transport en commun ---
-    path, travel_return, dist = compute_return_transit(path, return_time, city, G=G, stops_data=stops_data, gares=gares)
+    path, travel_return, dist = compute_return_transit(path, return_time, city, G=G, stops_data=stops_data, gares=gares, address=address)
     print(f"Distance totale avec retour en TC : {dist/1000:.1f} km")
     
     # --- Etape 5b : Récupérer les élévations ---
