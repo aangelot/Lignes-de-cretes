@@ -305,6 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     document.querySelectorAll('.floating-modal').forEach(addToggleExclusive);
 
+
     // === Soumission formulaire ===
     document.getElementById('trek-form').addEventListener('submit', async e => {
         e.preventDefault();
@@ -323,8 +324,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const departure_datetime = document.getElementById('departure_datetime').value;
         const return_datetime = document.getElementById('return_datetime').value;
 
-        const url = `/get_route/?city=${encodeURIComponent(city)}&massif=${encodeURIComponent(massif)}&level=${encodeURIComponent(level)}&randomness=${encodeURIComponent(randomness)}&departure_datetime=${encodeURIComponent(departure_datetime)}&return_datetime=${encodeURIComponent(return_datetime)}`;
+        const addressInput = document.getElementById('address');
+        const transitSelect = document.getElementById('transit_priority');
+ 
+        const address = addressInput ? addressInput.value.trim() : '';
+        const transit_priority = transitSelect ? transitSelect.value : '';
 
+        const params = new URLSearchParams();
+        params.append('city', city);
+        params.append('massif', massif);
+        params.append('level', level);
+        params.append('randomness', String(randomness));
+        params.append('departure_datetime', departure_datetime);
+        params.append('return_datetime', return_datetime);
+
+        params.append('address', address);
+        params.append('transit_priority', transit_priority);
+
+        const url = `/get_route/?${params.toString()}`;
         try {
             const response = await fetch(url);
             if (!response.ok) throw new Error('Erreur lors de la récupération du tracé');
@@ -453,3 +470,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 });
+
+
+

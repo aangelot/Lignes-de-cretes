@@ -16,18 +16,26 @@ def get_route(request):
             departure_datetime = request.GET.get("departure_datetime")
             return_datetime = request.GET.get("return_datetime")
 
+            # --- Nouveaux champs optionnels ---
+            address = request.GET.get("address", "")
+            transit_priority = request.GET.get("transit_priority", "")
+
             # --- Conversion du paramètre randomness ---
             try:
-                randomness = float(randomness_str)/2
+                randomness = float(randomness_str) / 2
                 if not (0 <= randomness <= 1):
                     randomness = 0.25
             except ValueError:
                 randomness = 0.25
 
-            print(f"Appel get_route avec city={city}, massif={massif}, level={level}, randomness={randomness}, "
-                  f"departure_datetime={departure_datetime}, return_datetime={return_datetime}")
+            print(
+                f"Appel get_route avec city={city}, massif={massif}, level={level}, "
+                f"randomness={randomness}, departure_datetime={departure_datetime}, "
+                f"return_datetime={return_datetime}, address='{address}', "
+                f"transit_priority='{transit_priority}'"
+            )
 
-            # --- Appel de la logique principale ---
+            # --- Appel logique principale ---
             geojson_data = compute_best_route(
                 randomness=randomness,
                 city=city,
@@ -35,12 +43,13 @@ def get_route(request):
                 departure_time=departure_datetime,
                 return_time=return_datetime,
                 level=level,
+                address=address,
+                transit_priority=transit_priority,
             )
-            print("✅ Itinéraire calculé avec succès.")
+            print("Itinéraire calculé avec succès.")
 
             save_geojson_gpx(geojson_data)
 
-            # --- Réponse JSON ---
             return JsonResponse(geojson_data)
 
         except Exception as e:
@@ -48,5 +57,4 @@ def get_route(request):
             print(traceback.format_exc())
             return JsonResponse({"error": str(e)}, status=500)
 
-    else:
-        return JsonResponse({"error": "Méthode non autorisée"}, status=405)
+    return JsonResponse({"error": "Méthode non autorisée"}, status=405)
