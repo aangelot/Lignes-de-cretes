@@ -62,7 +62,7 @@ Envoyez une issue ou une pull request !
 Voici le process de calcul du meilleur itinéraire :
 <img width="6877" height="3375" alt="Process lignes de crêtes" src="https://github.com/user-attachments/assets/10166174-d3df-46a0-bd1f-c4c0b92c6e4d" />
 
-## Installation et préparation de l’environnement
+## Lancer l'application
 
 ### 1. Installer les dépendances système (GDAL)
 
@@ -83,7 +83,7 @@ pip install -r requirements.txt
 
 ### 3. Configurer le fichier `.env`
 
-Copiez le fichier `.env` d’exemple fourni et ajoutez votre clé Google API dans la variable prévue ainsi que les variables pour une base PostgreSQL. 
+Copiez le fichier `.env-example` d’exemple fourni, le renommer en `.env` et ajoutez votre clé Google API dans la variable prévue ainsi que les variables pour une base PostgreSQL. 
 
 ### 4. Préparation de PostgreSQL
 
@@ -114,11 +114,8 @@ GRANT ALL PRIVILEGES ON DATABASE nom_de_ta_base TO "nom_utilisateur";
 python manage.py migrate
 ```
 
-### 6. (Optionnel mais conseillé) Créer un superutilisateur
-
-```bash
-python manage.py createsuperuser
-```
+### 6. Ajouter les fichiers pour calcul itinéraire
+Dans data/output, ajouter les fichers disponibles depuis ce lien : https://drive.google.com/drive/folders/1BkE31PsgJABIiVLXBGiulQQ-MCorUeXK?usp=sharing 
 
 ### 7. Lancer le serveur
 
@@ -133,7 +130,7 @@ python manage.py runserver
 * En cas d’erreur liée à GDAL au lancement du serveur, confirmez que l’environnement virtuel a bien accès aux bibliothèques installées dans `/usr/include/gdal`.
 
 
-## Pour calculer les données d'un massif
+## Calculer les données d'un massif
 Télécharger le fichier GeoJSON des parcs naturels ici : https://data-interne.ademe.fr/datasets/pnr
 Et l'enregistrer dans data/input/pnr.geojson
 
