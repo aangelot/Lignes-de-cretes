@@ -35,7 +35,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
     infoBtn.onclick = () => infoModal.style.display = 'flex';
     closeModal.onclick = () => infoModal.style.display = 'none';
-    window.onclick = e => { if (e.target === infoModal) infoModal.style.display = 'none'; };
+
+    // Modale d'avertissement GPX (existe toujours dans le template)
+    const gpxWarningModal = document.getElementById('gpxWarningModal');
+    const gpxCancelBtn = document.getElementById('gpx-cancel-btn');
+    const gpxConfirmBtn = document.getElementById('gpx-confirm-btn');
+
+    if (gpxCancelBtn) gpxCancelBtn.onclick = () => { if (gpxWarningModal) gpxWarningModal.style.display = 'none'; };
+
+    function triggerGPXDownload() {
+        const link = document.createElement('a');
+        link.href = '/static/hello/data/optimized_routes.gpx';
+        link.download = 'optimized_routes.gpx';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    if (gpxConfirmBtn) gpxConfirmBtn.onclick = () => {
+        triggerGPXDownload();
+        if (gpxWarningModal) gpxWarningModal.style.display = 'none';
+    };
+
+    window.onclick = e => {
+        if (e.target === infoModal) infoModal.style.display = 'none';
+        if (gpxWarningModal && e.target === gpxWarningModal) gpxWarningModal.style.display = 'none';
+    };
 
     // === Initialisation de la carte ===
     const map = L.map('map');
@@ -476,12 +501,11 @@ document.addEventListener('DOMContentLoaded', () => {
             gpxBtn.style.marginTop = '1em';
 
             gpxBtn.addEventListener('click', () => {
-                const link = document.createElement('a');
-                link.href = '/static/hello/data/optimized_routes.gpx';
-                link.download = 'optimized_routes.gpx';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
+                if (typeof gpxWarningModal !== 'undefined' && gpxWarningModal) {
+                    gpxWarningModal.style.display = 'flex';
+                } else {
+                    triggerGPXDownload();
+                }
             });
 
             container.appendChild(gpxBtn);

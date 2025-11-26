@@ -50,6 +50,23 @@
     <button class="close-btn" id="closeModal">Fermer</button>
     </div>
 </div>
+<!-- Modale d'avertissement avant téléchargement GPX -->
+<div id="gpxWarningModal" class="modal">
+  <div class="modal-content">
+    <h2>Avertissement avant téléchargement</h2>
+    <p>
+      Les traces GPX fournies par cette application sont des aides à la navigation.
+      Elles ne remplacent pas une carte papier (par exemple IGN), une bonne préparation
+      et l'évaluation de vos capacités. Soyez prudent·e en montagne, vérifiez la météo
+      et préparez-vous en conséquence. L'algorithme peut proposer des itinéraires qui
+      ne conviennent pas à tout le monde.
+    </p>
+    <div style="display:flex; gap:0.5em; justify-content:flex-end; margin-top:1em;">
+      <button class="close-btn" id="gpx-cancel-btn">Annuler</button>
+      <button class="close-btn highlight" id="gpx-confirm-btn">J'ai compris, télécharger le fichier GPX</button>
+    </div>
+  </div>
+</div>
  <!-- MAP -->
   <div id="map"></div>
 
