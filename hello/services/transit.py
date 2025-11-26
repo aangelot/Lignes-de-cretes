@@ -258,10 +258,46 @@ def compute_max_hiking_distance(departure_time: datetime,
     return distance_max_m
 
 
+def _is_itinerary_on_target_day(transit_route, target_date):
+    """
+    Vérifie que l'itinéraire retourné par Google Maps est bien le jour souhaité.
+    
+    Args:
+        transit_route: dictionnaire de réponse de Google Routes API
+        target_date: date souhaitée (datetime.date)
+    
+    Returns:
+        True si l'itinéraire est le bon jour, False sinon
+    """
+    try:
+        steps = transit_route.get("routes", [{}])[0].get("legs", [{}])[0].get("steps", [])
+        transit_steps = [s for s in steps if s.get("travelMode") == "TRANSIT"]
+        
+        if not transit_steps:
+            return False
+        
+        # Vérifier le jour du dernier step TRANSIT (arrivée)
+        arrival_str = transit_steps[-1].get("transitDetails", {}).get("stopDetails", {}).get("arrivalTime")
+        if not arrival_str:
+            return False
+        
+        arrival_time = datetime.fromisoformat(arrival_str.replace("Z", "+00:00"))
+        arrival_date = arrival_time.date()
+        
+        return arrival_date == target_date
+    except Exception as e:
+        print(f"  ⚠️ Erreur lors de la vérification du jour : {e}")
+        return False
+
+
 def compute_return_transit(path, return_time, city, G, stops_data, gares, address):
     """
     Calcule le trajet retour en transport en commun depuis le dernier point du path jusqu'à la ville.
     Ajoute également la marche jusqu'au premier arrêt de TC dans le path.
+    
+    Vérifie que l'itinéraire retourné est bien le jour souhaité. Si Google Maps retourne
+    un itinéraire d'un autre jour (veille, avant-veille, etc.), l'arrêt est rejeté et
+    on teste l'arrêt suivant.
     """
     print(f" >>> Début du calcul du trajet retour pour la ville : {city}")
 
@@ -353,6 +389,13 @@ def compute_return_transit(path, return_time, city, G, stops_data, gares, addres
         transit_steps = [s for s in steps if s.get("travelMode") == "TRANSIT"]
 
         if transit_steps:
+            # --- Vérifier que l'itinéraire est bien le bon jour ---
+            target_day = return_time.date()
+            if not _is_itinerary_on_target_day(resp, target_day):
+                print(f" ❌ Itinéraire retour trouvé depuis {stop_id}, mais pas le bon jour.")
+                time.sleep(1)
+                continue
+            
             print(f" ✅ Itinéraire retour trouvé depuis l'arrêt {stop_id}.")
             # Reset compteur si succès
             stops_data[stop_id]["failure_count"] = 0
