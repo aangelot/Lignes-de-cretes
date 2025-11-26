@@ -96,13 +96,6 @@ def fetch_pois(massif: str):
                 maps_uri = place.get("googleMapsUri")
                 rating = place.get("rating")
 
-                photo_url = None
-                photos = place.get("photos", [])
-                if photos and isinstance(photos, list):
-                    photo_name = photos[0].get("name")
-                    if photo_name:
-                        photo_url = f"https://places.googleapis.com/v1/{photo_name}/media?maxHeightPx=400&key={API_KEY}"
-
                 feature = {
                     "type": "Feature",
                     "geometry": {"type": "Point", "coordinates": [lng, lat]},
@@ -111,7 +104,6 @@ def fetch_pois(massif: str):
                         "primaryType": primary_type,
                         "googleMapsUri": maps_uri,
                         "rating": rating,
-                        "photo": photo_url
                     }
                 }
 

@@ -52,7 +52,6 @@ for feat in sommets_data["features"]:
         "type": "summit",
         "googlemapsURI": None,
         "rating": None,
-        "photo": None,
         "elevation": properties.get("elevation", None)
     })
 
@@ -68,7 +67,6 @@ for feat in poi_data["features"]:
         "type": properties.get("primaryType", None),
         "googlemapsURI": properties.get("googleMapsUri", None),
         "rating": properties.get("rating", None),
-        "photo": properties.get("photo", None),
         "elevation": None
     })
 
