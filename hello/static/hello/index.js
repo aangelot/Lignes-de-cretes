@@ -74,6 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let startMarker = null;
     let endMarker = null;
     let arrowDecorator = null;
+    let poiLayer = null;
     let controlElevation = null;
 
     // Vérification des dates
@@ -186,6 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (startMarker) { map.removeLayer(startMarker); startMarker = null; }
         if (endMarker) { map.removeLayer(endMarker); endMarker = null; }
         if (arrowDecorator) { map.removeLayer(arrowDecorator); arrowDecorator = null; }
+        if (poiLayer) { map.removeLayer(poiLayer); poiLayer = null; }
     }
 
 
@@ -391,6 +393,31 @@ document.addEventListener('DOMContentLoaded', () => {
             formModal.classList.add('collapsed');
 
             const props = data.features[0].properties;
+
+            // === Afficher les POI proches si présents ===
+            try {
+                if (props && Array.isArray(props.near_pois) && props.near_pois.length > 0) {
+                    if (poiLayer) { map.removeLayer(poiLayer); poiLayer = null; }
+                    poiLayer = L.geoJSON(props.near_pois, {
+                        pointToLayer: function(feature, latlng) {
+                            const title = (feature.properties && (feature.properties.titre || feature.properties.title || feature.properties.name)) || 'POI';
+                            const type = feature.properties && feature.properties.type;
+                            const iconUrl = type === 'summit' ? '/static/hello/summit.png' : '/static/hello/POI.png';
+                            const icon = L.icon({
+                                iconUrl: iconUrl,
+                                iconSize: [32, 32],
+                                iconAnchor: [16, 16],
+                                popupAnchor: [0, -16]
+                            });
+                            const marker = L.marker(latlng, { icon: icon });
+                            marker.bindPopup(title);
+                            return marker;
+                        }
+                    }).addTo(map);
+                }
+            } catch (err) {
+                console.warn('Erreur affichage POI :', err);
+            }
 
             // === Modale Résumé ===
             const summaryModal = document.getElementById('modal-summary');

@@ -726,6 +726,80 @@ def compute_total_ascent(elevations, min_diff=2):
             total_ascent += delta
     return round(total_ascent)
 
+
+def extract_pois_near_path(path, poi_data, max_distance_m=200):
+    """
+    Extrait de `poi_data` les features (POI) dont la distance minimale
+    au tracé `path` est inférieure ou égale à `max_distance_m` mètres.
+
+    Args:
+        path: liste de points [(lon, lat) ou [lon, lat, ele], ...] décrivant le tracé.
+        poi_data: GeoJSON dict contenant une clé `features`.
+        max_distance_m: distance seuil en mètres (défaut 200).
+
+    Retourne:
+        liste de features (dict) filtrées, conservant tous les attributs.
+    """
+    R = 6371000.0
+    def to_xy(lon, lat, lat_ref):
+        x = math.radians(lon) * math.cos(math.radians(lat_ref)) * R
+        y = math.radians(lat) * R
+        return (x, y)
+
+    def point_segment_distance_m(pt_lonlat, a_lonlat, b_lonlat):
+        plat, plon = pt_lonlat[1], pt_lonlat[0]
+        alat, alon = a_lonlat[1], a_lonlat[0]
+        blat, blon = b_lonlat[1], b_lonlat[0]
+        lat_ref = (plat + alat + blat) / 3.0
+        px, py = to_xy(plon, plat, lat_ref)
+        ax, ay = to_xy(alon, alat, lat_ref)
+        bx, by = to_xy(blon, blat, lat_ref)
+        vx, vy = bx - ax, by - ay
+        wx, wy = px - ax, py - ay
+        vlen2 = vx*vx + vy*vy
+        if vlen2 == 0:
+            return math.hypot(px - ax, py - ay)
+        t = (wx*vx + wy*vy) / vlen2
+        t = max(0.0, min(1.0, t))
+        projx = ax + t * vx
+        projy = ay + t * vy
+        return math.hypot(px - projx, py - projy)
+
+    if not path or not poi_data or "features" not in poi_data:
+        return []
+
+    near_features = []
+    for feat in poi_data.get("features", []):
+        try:
+            coords = feat.get("geometry", {}).get("coordinates")
+            if not coords or len(coords) < 2:
+                continue
+            poi = (coords[0], coords[1])  # (lon, lat)
+            min_d = float("inf")
+            # parcourir segments
+            if len(path) >= 2:
+                for u, v in zip(path[:-1], path[1:]):
+                    # u and v may be [lon,lat] or [lon,lat,ele]
+                    ua = (u[0], u[1])
+                    vb = (v[0], v[1])
+                    d = point_segment_distance_m(poi, ua, vb)
+                    if d < min_d:
+                        min_d = d
+                    if min_d <= max_distance_m:
+                        break
+            else:
+                # path single point
+                node = path[0]
+                d_node = haversine((poi[1], poi[0]), (node[1], node[0]))
+                min_d = min(min_d, d_node)
+
+            if min_d <= max_distance_m:
+                near_features.append(feat)
+        except Exception:
+            continue
+
+    return near_features
+
 # ---- Fonction principale combinée ----
 def compute_best_route(
     randomness=0.2,
@@ -832,7 +906,15 @@ def compute_best_route(
             "path_elevation": total_ascent
         }
     }
-    print("✅ Itinéraire GeoJSON construit.")
+    # --- Extraire les POI proches du tracé (<= 200m) et les ajouter aux propriétés
+    try:
+        near_pois = extract_pois_near_path(path, poi_data, max_distance_m=200)
+    except Exception as e:
+        print(f"⚠️ Erreur lors de l'extraction des POI proches: {e}")
+        near_pois = []
+
+    feature["properties"]["near_pois"] = near_pois
+    print("✅ Itinéraire GeoJSON construit avec POI proches ajoutés.")
     return {
         "type": "FeatureCollection",
         "features": [feature]
