@@ -79,14 +79,25 @@ def path_has_crossing(path_nodes, new_segment_nodes):
 
 
 def save_geojson_gpx(data, output_path="hello/static/hello/data/optimized_routes.geojson"):
+    """Save GeoJSON to `output_path` and create a GPX file with the same base name.
+
+    `output_path` may be absolute or relative. The GPX file will be written to the same
+    directory with the same base name and a `.gpx` extension.
+    """
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
         print(f"✅ GeoJSON sauvegardé dans {output_path}")
-    with open(output_path, "r") as f:
-        geojson_data = json.load(f)
+
+    # Re-générer GPX from the saved geojson
+    try:
+        with open(output_path, "r", encoding="utf-8") as f:
+            geojson_data = json.load(f)
+    except Exception:
+        geojson_data = data
+
     gpx = gpxpy.gpx.GPX()
-    for feature in geojson_data["features"]:
+    for feature in geojson_data.get("features", []):
         geom = shape(feature["geometry"])
         if geom.geom_type == "LineString":
             track = gpxpy.gpx.GPXTrack()
@@ -96,9 +107,13 @@ def save_geojson_gpx(data, output_path="hello/static/hello/data/optimized_routes
 
             for coord in geom.coords:
                 lon, lat = coord[0], coord[1]
-                ele = coord[2] if len(coord) > 2 else None  # récupère l'altitude si présente
+                ele = coord[2] if len(coord) > 2 else None
                 segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon, elevation=ele))
 
-    # Sauver en GPX
-    with open("hello/static/hello/data/optimized_routes.gpx", "w") as f:
-        f.write(gpx.to_xml())
+    gpx_path = os.path.splitext(output_path)[0] + ".gpx"
+    try:
+        with open(gpx_path, "w", encoding="utf-8") as f:
+            f.write(gpx.to_xml())
+        print(f"✅ GPX sauvegardé dans {gpx_path}")
+    except Exception as e:
+        print(f"Erreur lors de la sauvegarde du GPX: {e}")

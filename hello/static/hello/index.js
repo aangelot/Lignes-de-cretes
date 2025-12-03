@@ -43,10 +43,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (gpxCancelBtn) gpxCancelBtn.onclick = () => { if (gpxWarningModal) gpxWarningModal.style.display = 'none'; };
 
+    // Dernier nom de fichier généré côté serveur (ex: "route_... .geojson")
+    let lastGeneratedFilename = null;
+
     function triggerGPXDownload() {
         const link = document.createElement('a');
-        link.href = '/static/hello/data/optimized_routes.gpx';
-        link.download = 'optimized_routes.gpx';
+        let gpxName = 'optimized_routes.gpx';
+        let href = '/static/hello/data/optimized_routes.gpx';
+        if (lastGeneratedFilename) {
+            // remplacer l'extension .geojson par .gpx
+            gpxName = lastGeneratedFilename.replace(/\.geojson$/i, '.gpx');
+            href = `/static/hello/data/${gpxName}`;
+        }
+        link.href = href;
+        link.download = gpxName;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -384,6 +394,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert("Aucun itinéraire trouvé !");
                 return;
             }
+
+            // Récupérer le nom de fichier généré côté serveur (si présent)
+            lastGeneratedFilename = data.generated_filename || null;
 
             // GeoJSON
             currentLayer = L.geoJSON(data, { style: { color: '#ef8409', weight: 4, opacity: 0.9 } }).addTo(map);

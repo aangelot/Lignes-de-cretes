@@ -154,10 +154,30 @@ def compute_best_route(
     feature["properties"]["near_pois"] = near_pois
     print("✅ Itinéraire GeoJSON construit avec POI proches ajoutés.")
     
-    return {
+    result = {
         "type": "FeatureCollection",
         "features": [feature]
     }
+
+    # Générer un nom de fichier unique pour le GeoJSON et le GPX
+    try:
+        params_part = f"{city_clean}_{massif_clean}_{slugify(level)}_r{int(randomness*100)}"
+    except Exception:
+        params_part = f"{city_clean}_{massif_clean}"
+    ts_ms = int(datetime.utcnow().timestamp() * 1000)
+    filename_base = f"route_{params_part}_{ts_ms}"
+    output_dir = os.path.join(settings.BASE_DIR, "hello", "static", "hello", "data")
+    os.makedirs(output_dir, exist_ok=True)
+    output_geojson_path = os.path.join(output_dir, f"{filename_base}.geojson")
+
+    try:
+        save_geojson_gpx(result, output_path=output_geojson_path)
+        # Expose le nom de fichier (sans chemin) au front pour récupération
+        result["generated_filename"] = f"{filename_base}.geojson"
+    except Exception as e:
+        print(f"⚠️ Erreur lors de la sauvegarde des fichiers GeoJSON/GPX : {e}")
+
+    return result
 
 
 if __name__ == "__main__":
