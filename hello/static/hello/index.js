@@ -252,11 +252,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         // Affichage infos
                         container.innerHTML += `
                         <p>
-                            🏁 <strong>${depStop}</strong> à <strong>${depTime}</strong> : prendre 
-                            <strong>${vehicle} ${line}</strong><br>
-                            Direction <strong>${headsign}</strong><br> 
-                            🎯 Arrivée à <strong>${arrStop}</strong> à <strong>${arrTime}</strong>.<br>
-                            Plus d'informations sur le <a href="${link}" target="_blank">site de l'agence</a>.
+                            ${vehicle === 'Train' ? '🚆'
+                            : vehicle === 'Bus' ? '🚌'
+                            : vehicle === 'Tramway' ? '🚋'
+                            : vehicle === 'Trolleybus' ? '🚎'
+                            : vehicle === 'Métro' ? '🚇'
+                            : '🌍'}
+                            <strong>Départ :</strong> ${depStop} à ${depTime}<br>
+                            <strong>Prendre :</strong> ${vehicle} ${line}<br>
+                            <strong>Direction :</strong> ${headsign}<br>
+                            🎯 <strong>Arrivée :</strong> ${arrStop} à ${arrTime}<br>
+                            🔗 <a href="${link}" target="_blank">Plus d'informations sur le site de l'agence</a>.
                         </p>
                         `;
 
