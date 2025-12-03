@@ -427,6 +427,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         pointToLayer: function(feature, latlng) {
                             const title = (feature.properties && (feature.properties.titre || feature.properties.title || feature.properties.name)) || 'POI';
                             const type = feature.properties && feature.properties.type;
+                            const elevation = feature.properties && feature.properties.elevation;
                             const iconUrl = type === 'summit' ? '/static/hello/summit.png' : '/static/hello/POI.png';
                             const icon = L.icon({
                                 iconUrl: iconUrl,
@@ -435,7 +436,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 popupAnchor: [0, -16]
                             });
                             const marker = L.marker(latlng, { icon: icon });
-                            marker.bindPopup(title);
+                            marker.bindPopup(type === 'summit' ? `${title} (${elevation} m)` : title);
                             return marker;
                         }
                     }).addTo(map);
