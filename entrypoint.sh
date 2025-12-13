@@ -2,16 +2,16 @@
 set -e
 
 # Attendre PostgreSQL
-echo "=> Waiting for PostgreSQL..."
-./wait-for-it.sh db:5432 --timeout=30 --strict
+# echo "=> Waiting for PostgreSQL..."
+# ./wait-for-it.sh db:5432 --timeout=30 --strict
 
 # Créer le dossier staticfiles si inexistant
 echo "=> Ensuring staticfiles directory exists..."
 mkdir -p /app/staticfiles
 
 # Migrations
-echo "=> Applying database migrations..."
-python manage.py migrate --noinput
+# echo "=> Applying database migrations..."
+# python manage.py migrate --noinput
 
 # Collecte des fichiers statiques
 echo "=> Collecting static files..."

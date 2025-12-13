@@ -27,7 +27,7 @@ DEBUG = True
 USE_MOCK_DATA = False
 USE_MOCK_ROUTE_CREATION = False
 
-ALLOWED_HOSTS = ['0.0.0.0', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['0.0.0.0', 'localhost', '127.0.0.1',  '37.59.105.122', 'lignes-de-cretes.fr', 'www.lignes-de-cretes.fr']
 
 # Application definition
 
