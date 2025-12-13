@@ -23,7 +23,7 @@ jobs:
       - name: Install system dependencies (GDAL)
         run: |
           sudo apt-get update
-          sudo apt-get install -y gdal-bin libgdal-dev
+          sudo apt-get install -y build-essential gdal-bin libgdal-dev proj-bin libproj-dev libgeos-dev libspatialindex-dev curl 
           echo "CPLUS_INCLUDE_PATH=/usr/include/gdal" >> $GITHUB_ENV
           echo "C_INCLUDE_PATH=/usr/include/gdal" >> $GITHUB_ENV
 
