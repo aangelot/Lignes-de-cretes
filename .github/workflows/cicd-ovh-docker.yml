@@ -32,6 +32,19 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Build .env
+        script: |
+          set -e
+          cat > .env <<EOF
+          DJANGO_SETTINGS_MODULE=lignes_de_cretes.settings
+          DEBUG=False
+          DB_NAME=${{ secrets.DB_NAME }}
+          DB_USER=${{ secrets.DB_USER }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          DATABASE_HOST=${{ secrets.DATABASE_HOST }}
+          GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
+          EOF
+
       - name: Django system checks
         env:
           DJANGO_SETTINGS_MODULE: lignes_de_cretes.settings
@@ -75,7 +88,18 @@ jobs:
               git reset --hard origin/main
             fi
 
+            cat > .env <<EOF
+            DJANGO_SETTINGS_MODULE=lignes_de_cretes.settings
+            DEBUG=False
+            DB_NAME=${{ secrets.DB_NAME }}
+            DB_USER=${{ secrets.DB_USER }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            DATABASE_HOST=${{ secrets.DATABASE_HOST }}
+            GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
+            EOF
+
             # Build & restart des conteneurs
+
             docker compose pull || true
             docker compose build
             docker compose up -d --remove-orphans
