@@ -9,7 +9,7 @@ on:
 jobs:
   test:
     name: Django checks
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout repository
@@ -43,7 +43,7 @@ jobs:
 
   deploy:
     name: Deploy to OVH VPS
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: test
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
