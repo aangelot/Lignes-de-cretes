@@ -9,25 +9,25 @@ services:
       - "8000:8000"
     volumes:
       - static_volume:/app/staticfiles
-    depends_on:
-      - db
+    # depends_on:
+    #   - db
     environment:
       DATABASE_HOST: db
       DATABASE_PORT: 5432
 
-  db:
-    image: postgis/postgis:15-3.3
-    container_name: lignes-de-cretes-db
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    ports:
-      - "5433:5432"
-    volumes:
-      - db_data:/var/lib/postgresql/data
+  # db:
+  #   image: postgis/postgis:15-3.3
+  #   container_name: lignes-de-cretes-db
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_DB: ${DB_NAME}
+  #     POSTGRES_USER: ${DB_USER}
+  #     POSTGRES_PASSWORD: ${DB_PASSWORD}
+  #   ports:
+  #     - "5433:5432"
+  #   volumes:
+  #     - db_data:/var/lib/postgresql/data
 
 volumes:
   static_volume:
-  db_data:
+  # db_data:
