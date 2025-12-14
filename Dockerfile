@@ -24,20 +24,17 @@ RUN useradd -m appuser
 WORKDIR /app
 
 # Copier requirements et installer Python
-COPY requirements.txt .
+COPY --chown=appuser:appuser requirements.txt .
 RUN pip install --upgrade pip \
  && pip install --no-cache-dir -r requirements.txt \
  && pip install gunicorn  # installer gunicorn
 
 # Copier le code de l'application
-COPY . .
+COPY --chown=appuser:appuser . .
 
 # Ajouter wait-for-it pour PostgreSQL
-COPY wait-for-it.sh /app/wait-for-it.sh
+COPY --chown=appuser:appuser wait-for-it.sh /app/wait-for-it.sh
 RUN chmod +x wait-for-it.sh entrypoint.sh
-
-# S'assurer que l'utilisateur appuser peut accéder à tout
-RUN chown -R appuser:appuser /app
 
 # Passer à l'utilisateur non-root
 USER appuser
