@@ -21,4 +21,5 @@ python manage.py collectstatic --noinput || echo "collectstatic failed (maybe no
 echo "=> Starting Gunicorn..."
 exec gunicorn lignes_de_cretes.wsgi:application \
     --bind 0.0.0.0:${PORT:-8000} \
+    --timeout 180 \
     --workers 3
