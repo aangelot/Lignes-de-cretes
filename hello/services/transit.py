@@ -148,7 +148,7 @@ def get_best_transit_route(randomness=0.25, city="Lyon", departure_time=None, re
                     print(f"❌ Suppression définitive de l'arrêt {stop_id}")
                     stops_data.pop(stop_id)
 
-                time.sleep(1)
+                time.sleep(0.05)
                 continue
 
             stop_info["failure_count"] = 0  # reset compteur en cas de succès
@@ -178,7 +178,7 @@ def get_best_transit_route(randomness=0.25, city="Lyon", departure_time=None, re
             return data
 
         except Exception as e:
-            time.sleep(1)
+            time.sleep(10.05)
             print(f"⚠️ Tentative échouée pour l'arrêt {stop_id} ({score_final:.3f}): {e}")
             continue
 
@@ -379,7 +379,7 @@ def compute_return_transit(path, return_time, city, G, stops_data, gares, addres
             if r.status_code != 200:
                 print(f" ❌ Erreur API pour l'arrêt {stop_id} : {r.text[:200]}")
                 print(" ⏳ Pause d'une seconde avant de réessayer...")
-                time.sleep(1)  
+                time.sleep(0.05)  
                 continue
 
             resp = r.json()
@@ -393,7 +393,7 @@ def compute_return_transit(path, return_time, city, G, stops_data, gares, addres
             target_day = return_time.date()
             if not _is_itinerary_on_target_day(resp, target_day):
                 print(f" ❌ Itinéraire retour trouvé depuis {stop_id}, mais pas le bon jour.")
-                time.sleep(1)
+                time.sleep(0.05)
                 continue
             
             print(f" ✅ Itinéraire retour trouvé depuis l'arrêt {stop_id}.")
@@ -412,7 +412,7 @@ def compute_return_transit(path, return_time, city, G, stops_data, gares, addres
             if stop_info["failure_count"] >= 20:
                 print(f" ❌ Suppression définitive de l'arrêt {stop_id}")
                 stops_data.pop(stop_id)
-            time.sleep(1)
+            time.sleep(0.05)
 
     if return_transit_route is None:
         print(" ❌ Aucun itinéraire retour trouvé après 10 arrêts testés.")

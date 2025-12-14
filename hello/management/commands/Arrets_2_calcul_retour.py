@@ -106,7 +106,7 @@ for idx, row in gdf.iterrows():
     durations_back.append(duration)
 
     # Pause entre chaque requête pour limiter les appels
-    time.sleep(6)
+    time.sleep(0.1)
 
 # --- Ajouter la colonne et filtrer les entrées valides ---
 gdf["duration_min_back"] = durations_back

@@ -79,7 +79,7 @@ def main(massif_name: str):
     print(f"📦 BBOX principale : {bbox}")
 
     # Fractionnement pour limiter les plantages Overpass
-    sub_bboxes = split_bbox(bbox, n=2)
+    sub_bboxes = split_bbox(bbox, n=3)
     print(f"🧩 {len(sub_bboxes)} sous-bbox générées")
 
     # API Overpass
@@ -104,7 +104,7 @@ def main(massif_name: str):
         # Retry automatique
         for attempt in range(5):
             try:
-                print(f"  🔁 Tentative {attempt+1}/3…")
+                print(f"  🔁 Tentative {attempt+1}/5…")
                 result = api.query(query)
                 print("  ✅ Succès")
                 break
