@@ -1,41 +1,29 @@
-document.addEventListener('DOMContentLoaded', () => {
-  const input = document.getElementById('address');
+document.addEventListener('DOMContentLoaded', function () {
+  const addressInput = document.getElementById('address');
   const datalist = document.getElementById('gare-list');
-
-  const codeField = document.getElementById('station_code');
-  const lonField  = document.getElementById('station_lon');
-  const latField  = document.getElementById('station_lat');
-
   let gares = [];
+  let suppressInput = false;
 
-  /* =========================
-     Normalisation
-  ========================= */
-
-  function normalize(s) {
+  function normalize(s){
     return (s || '')
       .toString()
       .normalize('NFD')
-      .replace(/\p{Diacritic}/gu, '')
+      .replace(/\p{Diacritic}/gu,'')
       .toLowerCase()
-      .replace(/[-_]/g, ' ')
-      .replace(/[^0-9a-z ]/g, ' ')
-      .replace(/\s+/g, ' ')
+      .replace(/[-_]/g,' ')
+      .replace(/[^0-9a-z ]/g,' ')
+      .replace(/\s+/g,' ')
       .trim();
   }
 
-  function compact(s) {
-    return s.replace(/\s+/g, '');
+  function compact(s){
+    return s.replace(/\s+/g,'');
   }
 
   const STOPWORDS = new Set([
     'gare','station','de','du','des','la','le','les',
     'tgv','sncf','centre','ville','centreville'
   ]);
-
-  /* =========================
-     Chargement des gares
-  ========================= */
 
   fetch('/gares/')
     .then(r => r.json())
@@ -51,29 +39,37 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
 
-  /* =========================
-     Autocomplete
-  ========================= */
-
-  input.addEventListener('input', () => {
+  function selectStation(found) {
+    if (!found) return;
+    addressInput.dataset.lon = found.lon ?? '';
+    addressInput.dataset.lat = found.lat ?? '';
+    addressInput.dataset.code = found.code_uic ?? '';
     datalist.innerHTML = '';
-    codeField.value = lonField.value = latField.value = '';
+    // suppress immediate re-processing (allow events to settle)
+    suppressInput = true;
+    setTimeout(() => { suppressInput = false; }, 300);
+  }
 
-    const raw = input.value;
+  addressInput.addEventListener('input', function () {
+    if (suppressInput) return;
+
+    const raw = addressInput.value;
+    datalist.innerHTML = '';
+
     if (raw.length < 2) return;
 
     const inputNorm = normalize(raw);
     const inputCompact = compact(inputNorm);
 
-    let inputTokens = inputNorm
-      .split(' ')
+    let inputTokens = inputNorm.split(' ')
       .filter(t => t && !STOPWORDS.has(t));
 
-    if (inputTokens.length === 0) {
-      inputTokens = [inputCompact];
+    // 🔑 si l'utilisateur tape "par " → on garde "par"
+    if (inputTokens.length === 0 && inputNorm.length >= 2) {
+      inputTokens = [inputNorm.replace(/\s+/g,'')];
     }
 
-    const results = [];
+    const scored = [];
 
     for (const g of gares) {
       let score = Infinity;
@@ -87,39 +83,49 @@ document.addEventListener('DOMContentLoaded', () => {
       else if (inputTokens.some(t => g._compact.includes(t))) score = 6;
 
       if (score < Infinity) {
-        results.push({ g, score });
+        scored.push({ g, score });
       }
     }
 
-    results
-      .sort((a, b) => a.score - b.score || a.g._norm.length - b.g._norm.length)
+    scored
+      .sort((a,b) => a.score - b.score || a.g._norm.length - b.g._norm.length)
       .slice(0, 12)
-      .forEach(({ g }) => {
+      .forEach(({g}) => {
         const opt = document.createElement('option');
         opt.value = g.name;
         opt.dataset.code = g.code_uic ?? '';
-        opt.dataset.lon  = g.lon ?? '';
-        opt.dataset.lat  = g.lat ?? '';
+        opt.dataset.lon = g.lon ?? '';
+        opt.dataset.lat = g.lat ?? '';
         datalist.appendChild(opt);
       });
+
+    // If the current input exactly matches one option, treat it as a selection
+    const exact = Array.from(datalist.options).find(o => o.value === raw);
+    if (exact) {
+      const found = gares.find(g => g.name === raw || normalize(g.name) === normalize(raw));
+      selectStation(found);
+    }
   });
 
-  /* =========================
-     Sélection finale fiable
-  ========================= */
+  // when user finalizes selection (blur/change), set fields and remove suggestions
+  addressInput.addEventListener('change', function () {
+    const chosen = addressInput.value;
+    const chosenNorm = normalize(chosen);
+    const found = gares.find(g => normalize(g.name) === chosenNorm || g.name === chosen);
+    if (found) {
+      selectStation(found);
+      return;
+    }
 
-  input.addEventListener('change', () => {
-    const valueNorm = normalize(input.value);
-    const valueCompact = compact(valueNorm);
-
-    const found =
-      gares.find(g => g._norm === valueNorm) ||
-      gares.find(g => g._compact === valueCompact);
-
-    if (!found) return;
-
-    codeField.value = found.code_uic ?? '';
-    lonField.value  = found.lon ?? '';
-    latField.value  = found.lat ?? '';
+    // fallback fuzzy: try compact prefix match
+    const sv2 = chosenNorm.replace(/\s+/g,'').slice(0,3);
+    const fuzzy = gares.find(g => {
+      const sName = normalize(g.name);
+      const sNameCompact = sName.replace(/\s+/g,'');
+      return sNameCompact.startsWith(sv2) || sName.includes(sv2) || sNameCompact.includes(sv2);
+    });
+    if (fuzzy) {
+      selectStation(fuzzy);
+    }
   });
 });
