@@ -72,7 +72,28 @@ for feat in poi_data["features"]:
 
 # --- Fusion des deux jeux de données ---
 merged = sommets_features + poi_features
-gdf = gpd.GeoDataFrame(merged, geometry="geometry", crs="EPSG:4326").to_crs(epsg=2154)
+
+# --- Nettoyage des titres ---
+# Supprimer les features sans titre
+merged = [f for f in merged if f.get("titre")]
+
+# Expressions à exclure
+expressions_exclure = [
+    "cannoying", "vélo", "quad", "moto", "cross", "hotel", "hébergement",
+    "dortoirs", "chambre", "parking", "via ferrata", "escalade", "ferme",
+    "route forestière", "raquettes", "4x4", "ski", "bike", "onf", "office",
+    "covoiturage", "parapente"
+]
+
+# Filtrer et capitaliser
+filtered_merged = []
+for f in merged:
+    titre = f["titre"].lower()
+    if not any(expr in titre for expr in expressions_exclure):
+        f["titre"] = f["titre"].capitalize()
+        filtered_merged.append(f)
+
+gdf = gpd.GeoDataFrame(filtered_merged, geometry="geometry", crs="EPSG:4326").to_crs(epsg=2154)
 
 # --- Nettoyage des types inutiles ---
 types_a_exclure = [
