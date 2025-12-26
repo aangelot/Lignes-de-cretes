@@ -102,7 +102,7 @@ def get_best_transit_route(randomness=0.25, departure_time=None, return_time=Non
     # --- Calcul du score pour chaque arrêt ---
     TRANSIT_WEIGHTS = {
         "balanced": {"duration": 0.4, "elevation": 0.3, "nature": 0.3},
-        "fast": {"duration": 1, "elevation": 0, "nature": 0},
+        "fast": {"duration": 0.9, "elevation": 0.05, "nature": 0.05},
         "deep_nature": {"duration": 0.2, "elevation": 0.3, "nature": 0.5}
     }
     weights = TRANSIT_WEIGHTS.get(transit_priority, TRANSIT_WEIGHTS["balanced"])
