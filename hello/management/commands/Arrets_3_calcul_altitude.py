@@ -4,9 +4,9 @@ import time
 import sys
 from utils import slugify
 
-def add_elevations(massif: str, ville: str):
+def add_elevations(massif: str):
     # Fichier d'entrée et de sortie
-    file_path = f"data/intermediate/{slugify(massif)}_{slugify(ville)}_arrets.geojson"
+    file_path = f"data/intermediate/{slugify(massif)}_arrets.geojson"
     gdf = gpd.read_file(file_path)
 
     # Fonction pour récupérer l'altitude via l’API Open-Elevation
@@ -36,10 +36,9 @@ def add_elevations(massif: str, ville: str):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print("Usage: python Arrets_3_altitude.py <Massif> <Ville>")
+    if len(sys.argv) < 2:
+        print("Usage: python Arrets_3_altitude.py <Massif> ")
         sys.exit(1)
 
     massif_name = sys.argv[1]
-    ville_name = sys.argv[2]
-    add_elevations(massif_name, ville_name)
+    add_elevations(massif_name)

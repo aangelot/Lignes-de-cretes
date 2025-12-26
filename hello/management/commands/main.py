@@ -24,23 +24,6 @@ def choisir_massif():
     print("❌ Sélection invalide")
     sys.exit(1)
 
-def choisir_ville():
-    with open("data/input/gares_departs.json", "r", encoding="utf-8") as f:
-        gares = json.load(f)
-    villes = sorted(gares.keys())
-    print("\nVilles de départ disponibles :")
-    for i, ville in enumerate(villes, start=1):
-        print(f"{i}. {ville}")
-    choice = input("Sélectionnez une ville (numéro ou nom) : ").strip()
-    if choice.isdigit():
-        idx = int(choice) - 1
-        if 0 <= idx < len(villes):
-            return villes[idx]
-    elif choice in villes:
-        return choice
-    print("❌ Sélection invalide")
-    sys.exit(1)
-
 def read_bbox_from_coord_max(massif):
     """Lit la bbox (lat_min, lng_min, lat_max, lng_max) depuis data/input/PNR_coord_max.geojson."""
     path = "data/input/PNR_coord_max.geojson"
@@ -72,18 +55,17 @@ def estimate_poi_grid_count(bbox, pas_lat=0.005, pas_lng=0.005):
     return max(0, n_lat * n_lng)
 
 # ---------- Pipelines ----------
-def pipeline_arrets(massif_name, ville_name, script_dir, start_step=0):
+def pipeline_arrets(massif_name, script_dir, start_step=0):
     """Pipeline arrêts : étapes 0..5 (Arrets_0 -> Arrets_5)."""
     slug_massif = slugify(massif_name)
-    slug_ville = slugify(ville_name)
 
     steps = [
         ("Arrets_0_filtre.py", [massif_name]),
-        ("Arrets_1_calcul_aller.py", [massif_name, ville_name]),
-        ("Arrets_2_calcul_retour.py", [massif_name, ville_name]),
-        ("Arrets_3_calcul_altitude.py", [massif_name, ville_name]),
-        ("Arrets_4_calcul_distance.py", [massif_name, ville_name]),
-        ("Arrets_5_normalisation.py", [massif_name, ville_name]),
+        ("Arrets_1_hubs_entree.py", [massif_name]),
+        ("Arrets_2_calcul_aller.py", [massif_name]),
+        ("Arrets_3_calcul_altitude.py", [massif_name]),
+        ("Arrets_4_calcul_distance.py", [massif_name]),
+        ("Arrets_5_normalisation.py", [massif_name]),
     ]
 
     for i, (script_name, args) in enumerate(steps):
@@ -94,7 +76,12 @@ def pipeline_arrets(massif_name, ville_name, script_dir, start_step=0):
         script_path = script_dir / script_name
 
         # confirmations spécifiques
-        if script_name == "Arrets_1_calcul_aller.py":
+        if script_name == "Arrets_1_hubs_entree.py":
+            confirm = input(f"Avez-vous bien préparé le fichier data/output/{massif_name}_hubs_entree.geojson ?")
+            if confirm != "y":
+                print("❌ Étape Arrets_1 annulée par l’utilisateur.")
+                return
+        if script_name == "Arrets_2_calcul_aller.py":
             inter0_path = f"data/intermediate/{slug_massif}_arrets.geojson"
             if not os.path.exists(inter0_path):
                 print(f"❌ Fichier introuvable : {inter0_path}")
@@ -105,18 +92,6 @@ def pipeline_arrets(massif_name, ville_name, script_dir, start_step=0):
             if confirm != "y":
                 print("❌ Étape Arrets_1 annulée par l’utilisateur.")
                 return
-
-        if script_name == "Arrets_2_calcul_retour.py":
-            inter_path = f"data/intermediate/{slug_massif}_{slug_ville}_arrets.geojson"
-            if not os.path.exists(inter_path):
-                print(f"❌ Fichier introuvable (nécessaire pour Arrets_2) : {inter_path}")
-                return
-            gdf_inter = gpd.read_file(inter_path)
-            nb_appels_2 = len(gdf_inter)
-            confirm = input(f"\n⚠️ Lancer le calcul retour (Google API) ? {nb_appels_2} appels nécessaires [y/N] : ").strip().lower()
-            if confirm != "y":
-                print("⏭️ Étape Arrets_2_calcul_retour.py ignorée.")
-                continue
 
         print(f"\n▶️ Lancement {script_name} ...")
         try:
@@ -146,12 +121,12 @@ def pipeline_poi(massif_name, script_dir, start_step=0):
             print(f"❌ Échec de {script_name} (exit {e.returncode})")
             raise
 
-def pipeline_graphe(massif_name, ville_name, script_dir, start_step=0):
+def pipeline_graphe(massif_name, script_dir, start_step=0):
     """Pipeline graphe : étapes 0..2 (Graphe_0, Graphe_1_POI_fusion, Graphe_2_fichiers_finaux)."""
     steps = [
         ("Graphe_0.py", [massif_name]),
         ("Graphe_1_POI_fusion.py", [massif_name]),
-        ("Graphe_2_fichiers_finaux.py", [massif_name, ville_name]),
+        ("Graphe_2_fichiers_finaux.py", [massif_name]),
     ]
 
     for i, (script_name, args) in enumerate(steps):
@@ -169,9 +144,7 @@ def pipeline_graphe(massif_name, ville_name, script_dir, start_step=0):
 # ---------- Main interactive ----------
 def main():
     massif_name = choisir_massif()
-    ville_name = choisir_ville()
     print(f"\n👉 Massif sélectionné : {massif_name}")
-    print(f"👉 Ville de départ : {ville_name}")
 
     script_dir = Path(__file__).parent.resolve()
 
@@ -187,14 +160,14 @@ def main():
     if choice == "1":
         print("\nÉtapes pipeline Arrêts (numéro) :")
         print("0. Arrets_0_filtre.py")
-        print("1. Arrets_1_calcul_aller.py")
-        print("2. Arrets_2_calcul_retour.py")
+        print("1. Arrets_1_hubs_entree.py")
+        print("2. Arrets_2_calcul_aller.py")
         print("3. Arrets_3_calcul_altitude.py")
         print("4. Arrets_4_calcul_distance.py")
         print("5. Arrets_5_normalisation.py")
         start_input = input("À partir de quelle étape voulez-vous reprendre ? (numéro, défaut=0) : ").strip()
         start_step = int(start_input) if start_input.isdigit() else 0
-        pipeline_arrets(massif_name, ville_name, script_dir, start_step=start_step)
+        pipeline_arrets(massif_name, script_dir, start_step=start_step)
 
     elif choice == "2":
         print("\nÉtapes pipeline POI (numéro) :")
@@ -213,7 +186,7 @@ def main():
         print("2. Graphe_2_fichiers_finaux.py")
         start_input = input("À partir de quelle étape voulez-vous reprendre ? (numéro, défaut=0) : ").strip()
         start_step = int(start_input) if start_input.isdigit() else 0
-        pipeline_graphe(massif_name, ville_name, script_dir, start_step=start_step)
+        pipeline_graphe(massif_name, script_dir, start_step=start_step)
 
     elif choice == "4":
         # pour "Tout" on demande étape de départ pour chaque sous-pipeline
@@ -230,9 +203,9 @@ def main():
         start_input = input("Graphe : étape de départ (numéro, défaut=0) : ").strip()
         start_graphe = int(start_input) if start_input.isdigit() else 0
 
-        pipeline_arrets(massif_name, ville_name, script_dir, start_step=start_arrets)
+        pipeline_arrets(massif_name, script_dir, start_step=start_arrets)
         pipeline_poi(massif_name, script_dir, start_step=start_poi)
-        pipeline_graphe(massif_name, ville_name, script_dir, start_step=start_graphe)
+        pipeline_graphe(massif_name, script_dir, start_step=start_graphe)
 
     else:
         print("❌ Choix invalide")

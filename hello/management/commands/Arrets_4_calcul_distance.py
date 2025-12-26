@@ -4,9 +4,9 @@ from shapely.ops import unary_union
 import sys
 from utils import slugify
 
-def add_distance_to_border(massif: str, ville: str):
+def add_distance_to_border(massif: str):
     # Fichier d'entrée et sortie
-    file_path = f"data/intermediate/{slugify(massif)}_{slugify(ville)}_arrets.geojson"
+    file_path = f"data/intermediate/{slugify(massif)}_arrets.geojson"
     gdf_stops = gpd.read_file(file_path)
 
     # Charger le parc correspondant
@@ -40,10 +40,9 @@ def add_distance_to_border(massif: str, ville: str):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print("Usage: python Arrets_4_distance_bord.py <Massif> <Ville>")
+    if len(sys.argv) < 2:
+        print("Usage: python Arrets_4_distance_bord.py <Massif>")
         sys.exit(1)
 
     massif_name = sys.argv[1]
-    ville_name = sys.argv[2]
-    add_distance_to_border(massif_name, ville_name)
+    add_distance_to_border(massif_name,)

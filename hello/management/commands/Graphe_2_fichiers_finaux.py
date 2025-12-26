@@ -21,7 +21,7 @@ def main():
 
     # === Chargement des fichiers ===
     paths_fp = f"data/output/{massif_slug}_hiking_paths_with_poi_scores.geojson"
-    stops_fp = f"data/output/{massif_slug}_{ville_slug}_final.geojson"
+    stops_fp = f"data/output/{massif_slug}_arrets_final.geojson"
 
     paths = gpd.read_file(paths_fp)
     stops = gpd.read_file(stops_fp)
@@ -85,7 +85,7 @@ def main():
     output_dir = "data/output"
     os.makedirs(output_dir, exist_ok=True)
     graph_path = os.path.join(output_dir, f"{massif_slug}_hiking_graph.gpickle")
-    stops_path = os.path.join(output_dir, f"{massif_slug}_{ville_slug}_stop_node_mapping.json")
+    stops_path = os.path.join(output_dir, f"{massif_slug}_arrets_stop_node_mapping.json")
 
     with open(graph_path, "wb") as f:
         pickle.dump(G, f)
