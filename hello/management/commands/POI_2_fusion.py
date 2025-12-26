@@ -82,7 +82,7 @@ expressions_exclure = [
     "cannoying", "vélo", "quad", "moto", "cross", "hotel", "hébergement",
     "dortoirs", "chambre", "parking", "via ferrata", "escalade", "ferme",
     "route forestière", "raquettes", "4x4", "ski", "bike", "onf", "office",
-    "covoiturage", "parapente"
+    "covoiturage", "parapente", "spa", "centre équestre"
 ]
 
 # Filtrer et capitaliser

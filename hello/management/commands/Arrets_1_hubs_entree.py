@@ -2,8 +2,10 @@ import json
 import os
 from dotenv import load_dotenv
 import requests
+from datetime import datetime, timedelta
 import time
 import sys
+from utils import slugify
 
 def get_duration_from_api(origin_coords, destination_coords):
     """Call Google Maps API to get duration in minutes"""
@@ -11,6 +13,15 @@ def get_duration_from_api(origin_coords, destination_coords):
     API_KEY = os.getenv("GOOGLE_API_KEY")
     origin = {"latitude": origin_coords[1], "longitude": origin_coords[0]}
     destination = {"latitude": destination_coords[1], "longitude": destination_coords[0]}
+
+    # Heure de départ : samedi prochain à 4h, en UTC
+    now = datetime.now()
+    days_ahead = (5 - now.weekday()) % 7  # 5 = samedi
+    saturday = now + timedelta(days=days_ahead)
+    departure_time = datetime.combine(
+        saturday.date(), datetime.strptime("04:00", "%H:%M").time()
+    )
+    departure_time_utc = departure_time.astimezone().isoformat()
 
     url = "https://routes.googleapis.com/directions/v2:computeRoutes"
     headers = {
@@ -22,6 +33,7 @@ def get_duration_from_api(origin_coords, destination_coords):
         "origin": {"location": {"latLng": origin}},
         "destination": {"location": {"latLng": destination}},
         "travelMode": "TRANSIT",
+        "departureTime": departure_time_utc,
         "transitPreferences": {
             "routingPreference": "FEWER_TRANSFERS"
         }
@@ -50,10 +62,12 @@ def get_duration_from_api(origin_coords, destination_coords):
         return 10000
 
 def ajouter_durations_hubs(massif):
+
+    slug_massif = slugify(massif) 
     with open('data/input/hubs_departs.geojson', 'r') as f:
         hubs_departs = json.load(f)
     
-    with open(f'data/output/{massif}_hubs_entree.geojson', 'r') as f:
+    with open(f'data/output/{slug_massif}_hubs_entree.geojson', 'r') as f:
         hubs_entree = json.load(f)
     
     # Pour chaque hub d'entrée
@@ -87,7 +101,7 @@ def ajouter_durations_hubs(massif):
         feature['properties']['durations_from_hubs'] = durations_from_hubs
     
     # Save updated geojson
-    with open(f'data/output/{massif}_hubs_entree.geojson', 'w') as f:
+    with open(f'data/output/{slug_massif}_hubs_entree.geojson', 'w') as f:
         json.dump(hubs_entree, f, indent=2)
 
 if __name__ == "__main__":

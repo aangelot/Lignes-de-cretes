@@ -15,9 +15,8 @@ def main():
         print("❌ Usage: python Graphe_2_fichiers_finaux.py <massif_name>")
         sys.exit(1)
 
-    massif, ville = sys.argv[1], sys.argv[2]
+    massif = sys.argv[1]
     massif_slug = slugify(massif)
-    ville_slug = slugify(ville)
 
     # === Chargement des fichiers ===
     paths_fp = f"data/output/{massif_slug}_hiking_paths_with_poi_scores.geojson"

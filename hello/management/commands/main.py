@@ -77,7 +77,7 @@ def pipeline_arrets(massif_name, script_dir, start_step=0):
 
         # confirmations spécifiques
         if script_name == "Arrets_1_hubs_entree.py":
-            confirm = input(f"Avez-vous bien préparé le fichier data/output/{massif_name}_hubs_entree.geojson ?")
+            confirm = input(f"Avez-vous bien préparé le fichier data/output/{slug_massif}_hubs_entree.geojson ? [y/N] : ")
             if confirm != "y":
                 print("❌ Étape Arrets_1 annulée par l’utilisateur.")
                 return

@@ -119,7 +119,7 @@ def process_scores(massif: str):
         time.sleep(0.1)  # limiter les requêtes
 
     # Filtrer uniquement ceux avec une durée valide
-    results = [r for r in results if r["duration_min_go"] is not None]
+    results = [r for r in results if r["duration"] is not None]
     output_gdf = gpd.GeoDataFrame(results, crs="EPSG:4326")
 
     # Exporter

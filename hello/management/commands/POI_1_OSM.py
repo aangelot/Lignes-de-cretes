@@ -27,7 +27,7 @@ def fetch_osm_peaks(massif: str):
     # Requête Overpass
     overpass_url = "https://overpass-api.de/api/interpreter"
     query = f"""
-    [out:json][timeout:25];
+    [out:json][timeout:180];
     (
       node["natural"="peak"]({bbox['south']},{bbox['west']},{bbox['north']},{bbox['east']});
     );
