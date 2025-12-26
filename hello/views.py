@@ -2,6 +2,8 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from hello.services.trouver_chemin import compute_best_route
 import traceback
+import os
+import json
 
 def index(request):
     return render(request, "hello/index.html")
@@ -54,3 +56,40 @@ def get_route(request):
             return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "Méthode non autorisée"}, status=405)
+
+
+def gares_list(request):
+    """Retourne une liste simplifiée des gares pour l'autocomplete.
+    Format: [{"name": ..., "code_uic": ..., "lon": ..., "lat": ...}, ...]
+    """
+    if request.method != "GET":
+        return JsonResponse({"error": "Méthode non autorisée"}, status=405)
+
+    try:
+        # Détecte le chemin vers le fichier data/input/liste-des-gares.geojson
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.abspath(os.path.join(current_dir, ".."))
+        geojson_path = os.path.join(project_root, "data", "input", "liste-des-gares.geojson")
+
+        with open(geojson_path, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+
+        results = []
+        for feat in data.get("features", []):
+            props = feat.get("properties", {})
+            libelle = props.get("libelle") or props.get("name") or ""
+            code = props.get("code_uic") or props.get("idgaia")
+            # geometry coordinates [lon, lat]
+            geom = feat.get("geometry") or {}
+            coords = geom.get("coordinates") if geom else None
+            lon = coords[0] if coords and len(coords) >= 2 else None
+            lat = coords[1] if coords and len(coords) >= 2 else None
+
+            if libelle:
+                results.append({"name": libelle, "code_uic": code, "lon": lon, "lat": lat})
+
+        return JsonResponse(results, safe=False)
+
+    except Exception as e:
+        print("Erreur gares_list:", e)
+        return JsonResponse({"error": str(e)}, status=500)

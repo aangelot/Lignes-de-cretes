@@ -8,6 +8,8 @@ import os
 import random
 import time
 import requests
+import re
+import unicodedata
 from datetime import datetime, timedelta, time as dtime
 from zoneinfo import ZoneInfo
 from django.conf import settings
@@ -20,6 +22,44 @@ load_dotenv()
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 
+def _normalize_label(s):
+    if not s:
+        return ""
+    s = unicodedata.normalize("NFKD", s)
+    s = s.encode("ascii", "ignore").decode("ascii")
+    s = s.replace("-", " ")
+    s = re.sub(r"\s+", " ", s)
+    return s.strip().lower()
+
+
+def _coords_from_station_label(label):
+    """
+    Cherche dans data/input/liste-des-gares.geojson une gare correspondant au libellé `label`.
+    Retourne (lat, lon) si trouvée, sinon None.
+    """
+    try:
+        gj_path = os.path.join(settings.BASE_DIR, "data", "input", "liste-des-gares.geojson")
+        with open(gj_path, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+    except Exception as e:
+        print(f"⚠️ Impossible de lire liste-des-gares.geojson : {e}")
+        return None
+
+    target = _normalize_label(label)
+    if not target:
+        return None
+
+    for feat in data.get("features", []):
+        props = feat.get("properties", {}) or {}
+        lib = props.get("libelle") or props.get("name") or ""
+        if _normalize_label(lib) == target:
+            coords = feat.get("geometry", {}).get("coordinates")
+            if coords and len(coords) >= 2:
+                # GeoJSON coords: [lon, lat] -> return (lat, lon)
+                return (coords[1], coords[0])
+    return None
+
+
 def get_best_transit_route(randomness=0.25, departure_time=None, return_time=None,
                            stops_data=None, address='', transit_priority="balanced", hubs_entree_data=None):
     """
@@ -29,9 +69,11 @@ def get_best_transit_route(randomness=0.25, departure_time=None, return_time=Non
     - Départ soir (>18h) : max +18h
     - Vérifie que l'arrivée sur place laisse au moins 4h de marche avant le retour
     """
-        # --- Calculer la durée (minutes) depuis le hub de départ vers chaque stop ---
-    scored_stops = []
-    # Charger la liste des hubs de départ
+    # Tenter de récupérer les coordonnées à partir du libellé de gare (fallback geocoding)
+    address_coords = _coords_from_station_label(address) or geocode_address(address)
+    print(f"Coordonnées géocodées / station de l'adresse '{address}': {address_coords}")
+
+    # Choisir le hub de départ le plus proche
     hubs_departs = []
     try:
         hubs_departs_path = os.path.join(settings.BASE_DIR, "data", "input", "hubs_departs.geojson")
@@ -42,10 +84,7 @@ def get_best_transit_route(randomness=0.25, departure_time=None, return_time=Non
     # Charger les hubs d'entrée du massif sélectionné et les ajouter aux hubs de départ
     hubs_entree_features = hubs_entree_data.get("features", [])
     hubs_departs.extend(hubs_entree_features)
-    address_coords = geocode_address(address)
-    print(f"Coordonnées géocodées de l'adresse '{address}': {address_coords}")
 
-    # Choisir le hub de départ le plus proche
     departure_hub_name = None
     best = None
     for hf in hubs_departs:
@@ -60,7 +99,6 @@ def get_best_transit_route(randomness=0.25, departure_time=None, return_time=Non
     duration_values = []
     for stop_id, stop_info in (stops_data or {}).items():
         props = stop_info.setdefault("properties", {})
-        # hub d'entrée tel que présent dans les propriétés du stop
         hub_entree_id = props.get("hub_entree")
         dur_hub_to_hub_entree = 10000.0
         matched = None
@@ -73,21 +111,17 @@ def get_best_transit_route(randomness=0.25, departure_time=None, return_time=Non
             dur_map = matched.get("properties", {}).get("durations_from_hubs", {})
             if departure_hub_name and isinstance(dur_map, dict):
                 dur_hub_to_hub_entree = float(dur_map.get(departure_hub_name, 10000))
-        # durée hub_entree -> stop (propriété 'duration' attendue)
-        dur_hub_entree_to_stop = None
         if "duration" in props and props.get("duration") is not None:
             dur_hub_entree_to_stop = float(props.get("duration"))
         elif "duration_min_go" in props and props.get("duration_min_go") is not None:
             dur_hub_entree_to_stop = float(props.get("duration_min_go"))
         else:
-            # fallback large si absent
             dur_hub_entree_to_stop = 10000.0
 
         total_min = dur_hub_to_hub_entree + dur_hub_entree_to_stop
         props["duration_min_go"] = total_min
         duration_values.append(total_min)
 
-    # Normalisation linéaire en duration_min_go_normalized
     minv = min(duration_values)
     maxv = max(duration_values)
     for stop_id, stop_info in (stops_data or {}).items():
@@ -99,7 +133,6 @@ def get_best_transit_route(randomness=0.25, departure_time=None, return_time=Non
             props["duration_min_go_normalized"] = (val - minv) / (maxv - minv)
 
 
-    # --- Calcul du score pour chaque arrêt ---
     TRANSIT_WEIGHTS = {
         "balanced": {"duration": 0.4, "elevation": 0.3, "nature": 0.3},
         "fast": {"duration": 0.9, "elevation": 0.05, "nature": 0.05},
@@ -107,6 +140,7 @@ def get_best_transit_route(randomness=0.25, departure_time=None, return_time=Non
     }
     weights = TRANSIT_WEIGHTS.get(transit_priority, TRANSIT_WEIGHTS["balanced"])
 
+    scored_stops = []
     for stop_id, stop_info in stops_data.items():
         props = stop_info.get("properties", {})
         score = (
@@ -147,11 +181,9 @@ def get_best_transit_route(randomness=0.25, departure_time=None, return_time=Non
 
     # --- Parcourir les meilleurs arrêts ---
 
-    # si departure_time est naïf, on le rend aware
     if departure_time.tzinfo is None:
         departure_time = departure_time.replace(tzinfo=ZoneInfo("Europe/Paris"))
 
-    # idem pour return_time
     if return_time.tzinfo is None:
         return_time = return_time.replace(tzinfo=ZoneInfo("Europe/Paris"))
 
@@ -182,13 +214,11 @@ def get_best_transit_route(randomness=0.25, departure_time=None, return_time=Non
             steps = leg.get("steps", [])
             transit_steps = [s for s in steps if s.get("travelMode") == "TRANSIT"]
 
-            # --- Cas aucun step TRANSIT ---
             if not transit_steps:
                 print(f"⚠️ Aucun step TRANSIT pour {stop_id}")
                 stop_info["failure_count"] = stop_info.get("failure_count", 0) + 1
                 print(f"⚠️ Compteur échec pour {stop_id} = {stop_info['failure_count']}")
 
-                # Suppression si compteur >= 20
                 if stop_info["failure_count"] >= 20:
                     print(f"❌ Suppression définitive de l'arrêt {stop_id}")
                     stops_data.pop(stop_id)
@@ -196,9 +226,8 @@ def get_best_transit_route(randomness=0.25, departure_time=None, return_time=Non
                 time.sleep(0.05)
                 continue
 
-            stop_info["failure_count"] = 0  # reset compteur en cas de succès
+            stop_info["failure_count"] = 0
 
-            # --- Vérification de la fenêtre horaire ---
             dep_time_str = transit_steps[0]["transitDetails"]["stopDetails"]["departureTime"]
             dep_time = datetime.fromisoformat(dep_time_str).astimezone(ZoneInfo("Europe/Paris"))
 
@@ -209,7 +238,6 @@ def get_best_transit_route(randomness=0.25, departure_time=None, return_time=Non
                 print(f"⏰ Départ trop éloigné ({dep_time - departure_time}), on ignore {stop_id}")
                 continue
 
-            # --- Vérification avec heure de retour ---
             arrival_time_str = transit_steps[-1]["transitDetails"]["stopDetails"]["arrivalTime"]
             arrival_time = datetime.fromisoformat(arrival_time_str).astimezone(ZoneInfo("Europe/Paris"))
             est_travel_duration = arrival_time - dep_time
@@ -228,7 +256,6 @@ def get_best_transit_route(randomness=0.25, departure_time=None, return_time=Non
             continue
 
     raise RuntimeError("Aucun itinéraire de transport en commun trouvé respectant les contraintes temporelles")
-
 
 def compute_max_hiking_distance(departure_time: datetime,
                                 return_time: datetime,

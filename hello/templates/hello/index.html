@@ -92,20 +92,23 @@
             <option value="Chartreuse" selected>la Chartreuse</option>
             <option value="Massif des Bauges">les Bauges</option>
             <option value="Haut Jura">le Haut Jura</option>
-            <option value="Lyonnais">les alentours de Lyon</option>
             <option value="Vercors">le Vercors</option>
           </select>
-          en partant de :
+          depuis la gare de :
           <input
             type="text"
             id="address"
             name="address"
-            placeholder="Saisir une adresse…"
+            placeholder="Saisir une gare"
             autocomplete="off"
             required
+            list="gare-list"
           >
-          <div id="address-suggestions" class="suggestions"></div>
-          <script src="{% static 'hello/ban-autocomplete.js' %}" defer></script>
+          <input type="hidden" id="station_code" name="station_code">
+          <input type="hidden" id="station_lon" name="station_lon">
+          <input type="hidden" id="station_lat" name="station_lat">
+          <datalist id="gare-list"></datalist>
+          <script src="{% static 'hello/gare-autocomplete.js' %}" defer></script>
         </p>
         
         <p>
