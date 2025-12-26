@@ -360,7 +360,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         clearMapOverlays();
 
-        const city = document.getElementById('city').value;
         const massif = document.getElementById('massif').value;
         const level = document.getElementById('level').value;
         const randomness = document.getElementById('randomness').value;
@@ -374,7 +373,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const transit_priority = transitSelect ? transitSelect.value : '';
 
         const params = new URLSearchParams();
-        params.append('city', city);
         params.append('massif', massif);
         params.append('level', level);
         params.append('randomness', String(randomness));

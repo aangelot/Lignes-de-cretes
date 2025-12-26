@@ -9,15 +9,12 @@ def index(request):
 def get_route(request):
     if request.method == "GET":
         try:
-            city = request.GET.get("city", "Lyon")
             massif = request.GET.get("massif", "Chartreuse")
+            address = request.GET.get("address", "")
             level = request.GET.get("level", "debutant")
             randomness_str = request.GET.get("randomness", "0.3")
             departure_datetime = request.GET.get("departure_datetime")
             return_datetime = request.GET.get("return_datetime")
-
-            # --- Nouveaux champs optionnels ---
-            address = request.GET.get("address", "")
             transit_priority = request.GET.get("transit_priority", "")
 
             # --- Conversion du paramètre randomness ---
@@ -29,7 +26,7 @@ def get_route(request):
                 randomness = 0.25
 
             print(
-                f"Appel get_route avec city={city}, massif={massif}, level={level}, "
+                f"Appel get_route avec massif={massif}, level={level}, "
                 f"randomness={randomness}, departure_datetime={departure_datetime}, "
                 f"return_datetime={return_datetime}, address='{address}', "
                 f"transit_priority='{transit_priority}'"
@@ -38,7 +35,6 @@ def get_route(request):
             # --- Appel logique principale ---
             geojson_data = compute_best_route(
                 randomness=randomness,
-                city=city,
                 massif=massif,
                 departure_time=departure_datetime,
                 return_time=return_datetime,

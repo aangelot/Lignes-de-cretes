@@ -87,11 +87,7 @@
       <div class="modal-body">
       <form id="trek-form" method="get" class="text-form">
         <p>
-          Depuis 
-          <select id="city" name="city">
-            <option value="Lyon" selected>Lyon</option>
-          </select>,
-          je souhaite partir dans  
+          Je souhaite partir dans  
           <select id="massif" name="massif">
             <option value="Chartreuse" selected>la Chartreuse</option>
             <option value="Massif des Bauges">les Bauges</option>
@@ -99,27 +95,26 @@
             <option value="Lyonnais">les alentours de Lyon</option>
             <option value="Vercors">le Vercors</option>
           </select>
+          en partant de :
+          <input
+            type="text"
+            id="address"
+            name="address"
+            placeholder="Saisir une adresse…"
+            autocomplete="off"
+            required
+          >
+          <div id="address-suggestions" class="suggestions"></div>
+          <script src="{% static 'hello/ban-autocomplete.js' %}" defer></script>
         </p>
+        
         <p>
           Je pars le 
           <input type="datetime-local" id="departure_datetime" name="departure_datetime" required>
-          pour être de retour à <span id="return-city">Lyon</span> le 
+          pour être de retour le 
           <input type="datetime-local" id="return_datetime" name="return_datetime" required>
         </p>
         <div id="date-error" style="color: #ff6b6b; margin-top: 0.5em;"></div>
-
-        <script>
-          const citySelect = document.getElementById('city');
-          const returnCitySpan = document.getElementById('return-city');
-
-          // Initialisation
-          returnCitySpan.textContent = citySelect.value;
-
-          // Mise à jour dynamique
-          citySelect.addEventListener('change', () => {
-            returnCitySpan.textContent = citySelect.value;
-          });
-        </script>
 
         <p>
           Mon niveau de marche est :
@@ -130,6 +125,7 @@
             <option value="expert">&gt; 30 km /jour (Expert)</option>
           </select>
         </p>
+
         <p>
           Je souhaite une part d’aléatoire dans le tracé :
           <select id="randomness" name="randomness">
@@ -140,48 +136,14 @@
           </select>
         </p>
 
-        <p style="margin-top: 1.5em; font-weight: bold; cursor: pointer;" id="optional-fields-header">
-          ➕ Champs optionnels
+        <p>
+          Priorité pour le trajet en transports :
+          <select id="transit_priority" name="transit_priority">
+            <option value="fast">⏱️ Le moins de temps dans les transports</option>
+            <option value="balanced" selected>⚖️ Équilibré</option>
+            <option value="deep_nature">🌲 Aller au coeur du massif</option>
+          </select>
         </p>
-
-        <div id="optional-fields" style="display: none;">
-
-          <p>
-            Adresse exacte de départ :
-            <input
-              type="text"
-              id="address"
-              name="address"
-              placeholder="Saisir une adresse…"
-              autocomplete="off"
-            >
-            <div id="address-suggestions" class="suggestions"></div>
-            <script src="{% static 'hello/ban-autocomplete.js' %}" defer></script>
-          </p>
-
-          <p>
-            Priorité pour le trajet en transports :
-            <select id="transit_priority" name="transit_priority">
-              <option value="fast">⏱️ Le moins de temps dans les transports</option>
-              <option value="balanced" selected>⚖️ Équilibré</option>
-              <option value="deep_nature">🌲 Aller au coeur du massif</option>
-            </select>
-          </p>
-
-        </div>
-
-        <script>
-          const header = document.getElementById('optional-fields-header');
-          const section = document.getElementById('optional-fields');
-
-          header.addEventListener('click', () => {
-            const visible = section.style.display === 'block';
-            section.style.display = visible ? 'none' : 'block';
-            header.textContent = visible ? '➕ Champs optionnels' : '➖ Champs optionnels';
-          });
-        </script>
-
-
 
         <p style="text-align: center; margin-top: 1em;">
           <button type="submit" id="submit-btn">Trouver mon trek</button>
