@@ -20,8 +20,8 @@ load_dotenv()
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 
-def get_best_transit_route(randomness=0.25, city="Lyon", departure_time=None, return_time=None,
-                           stops_data=None, gares=None, address='', transit_priority="balanced"):
+def get_best_transit_route(randomness=0.25, departure_time=None, return_time=None,
+                           stops_data=None, address='', transit_priority="balanced", hubs_entree_data=None):
     """
     Sélectionne le meilleur arrêt selon le score et récupère un itinéraire de transport en commun via Google Maps.
     Ajoute des règles temporelles :
@@ -29,26 +29,82 @@ def get_best_transit_route(randomness=0.25, city="Lyon", departure_time=None, re
     - Départ soir (>18h) : max +18h
     - Vérifie que l'arrivée sur place laisse au moins 4h de marche avant le retour
     """
-    # --- Calculer le score pour chaque arrêt ---
+        # --- Calculer la durée (minutes) depuis le hub de départ vers chaque stop ---
     scored_stops = []
-    TRANSIT_WEIGHTS = {
-        "balanced": {
-            "duration": 0.4,
-            "elevation": 0.3,
-            "nature": 0.3
-        },
-        "fast": {
-            "duration": 0.8,
-            "elevation": 0.1,
-            "nature": 0.1
-        },
-        "deep_nature": {
-            "duration": 0.2,
-            "elevation": 0.3,
-            "nature": 0.5
-        }
-    }
+    # Charger la liste des hubs de départ
+    hubs_departs = []
+    try:
+        hubs_departs_path = os.path.join(settings.BASE_DIR, "data", "input", "hubs_departs.geojson")
+        with open(hubs_departs_path, "r", encoding="utf-8") as hf:
+            hubs_departs = json.load(hf).get("features", [])
+    except Exception:
+        hubs_departs = []
+    # Charger les hubs d'entrée du massif sélectionné et les ajouter aux hubs de départ
+    hubs_entree_features = hubs_entree_data.get("features", [])
+    hubs_departs.extend(hubs_entree_features)
+    address_coords = geocode_address(address)
+    print(f"Coordonnées géocodées de l'adresse '{address}': {address_coords}")
 
+    # Choisir le hub de départ le plus proche
+    departure_hub_name = None
+    best = None
+    for hf in hubs_departs:
+        hub_coords = hf.get("geometry", {}).get("coordinates")
+        d = haversine((address_coords[0], address_coords[1]), (hub_coords[1], hub_coords[0]))
+        if best is None or d < best[0]:
+            best = (d, hf)
+    departure_hub_name = best[1].get("properties", {}).get("nom") or best[1].get("properties", {}).get("id")
+    print(f"Hub de départ sélectionné : {departure_hub_name}")
+
+    # Calculer durations (hub_depart -> hub_entree) + (hub_entree -> stop)
+    duration_values = []
+    for stop_id, stop_info in (stops_data or {}).items():
+        props = stop_info.setdefault("properties", {})
+        # hub d'entrée tel que présent dans les propriétés du stop
+        hub_entree_id = props.get("hub_entree")
+        dur_hub_to_hub_entree = 10000.0
+        matched = None
+        for hf in hubs_entree_features:
+            hid = hf.get("properties", {}).get("id") or hf.get("properties", {}).get("nom")
+            if hid == hub_entree_id:
+                matched = hf
+                break
+        if matched:
+            dur_map = matched.get("properties", {}).get("durations_from_hubs", {})
+            if departure_hub_name and isinstance(dur_map, dict):
+                dur_hub_to_hub_entree = float(dur_map.get(departure_hub_name, 10000))
+        # durée hub_entree -> stop (propriété 'duration' attendue)
+        dur_hub_entree_to_stop = None
+        if "duration" in props and props.get("duration") is not None:
+            dur_hub_entree_to_stop = float(props.get("duration"))
+        elif "duration_min_go" in props and props.get("duration_min_go") is not None:
+            dur_hub_entree_to_stop = float(props.get("duration_min_go"))
+        else:
+            # fallback large si absent
+            dur_hub_entree_to_stop = 10000.0
+
+        total_min = dur_hub_to_hub_entree + dur_hub_entree_to_stop
+        props["duration_min_go"] = total_min
+        duration_values.append(total_min)
+
+    # Normalisation linéaire en duration_min_go_normalized
+    minv = min(duration_values)
+    maxv = max(duration_values)
+    for stop_id, stop_info in (stops_data or {}).items():
+        props = stop_info.setdefault("properties", {})
+        val = props.get("duration_min_go")
+        if val is None:
+            props["duration_min_go_normalized"] = 1.0
+        else:
+            props["duration_min_go_normalized"] = (val - minv) / (maxv - minv)
+
+
+    # --- Calcul du score pour chaque arrêt ---
+    TRANSIT_WEIGHTS = {
+        "balanced": {"duration": 0.4, "elevation": 0.3, "nature": 0.3},
+        "fast": {"duration": 1, "elevation": 0, "nature": 0},
+        "deep_nature": {"duration": 0.2, "elevation": 0.3, "nature": 0.5}
+    }
     weights = TRANSIT_WEIGHTS.get(transit_priority, TRANSIT_WEIGHTS["balanced"])
 
     for stop_id, stop_info in stops_data.items():
@@ -61,10 +117,12 @@ def get_best_transit_route(randomness=0.25, city="Lyon", departure_time=None, re
         rand_factor = random.random()
         score_final = (1 - randomness) * score + randomness * rand_factor
         scored_stops.append((score_final, stop_id, stop_info))
+
+    scored_stops = [x for x in scored_stops if isinstance(x, tuple) and len(x) > 0 and isinstance(x[0], (int, float))]
+    scored_stops.sort(reverse=True, key=lambda x: x[0])
     
     scored_stops = [x for x in scored_stops if isinstance(x, tuple) and len(x) > 0 and isinstance(x[0], (int, float))]
     scored_stops.sort(reverse=True, key=lambda x: x[0])
-    print(scored_stops[0:2])
 
     # --- Mode MOCK ---
     if getattr(settings, "USE_MOCK_ROUTE_CREATION", False):
@@ -85,20 +143,7 @@ def get_best_transit_route(randomness=0.25, city="Lyon", departure_time=None, re
             leg["duration"] = "7200s"
         return data["features"][0]["properties"]["transit_go"]
 
-    if city not in gares:
-        raise ValueError(f"❌ Ville '{city}' non trouvée dans gares_departs.json")
-
-    if address:
-        address_coords = geocode_address(address)
-        if address_coords:
-            origin = {"latLng": {"latitude": address_coords[0], "longitude": address_coords[1]}}
-        else:
-            print(f"Adresse non géocodée, utilisation du centre de {city}")
-            origin_coords = [gares[city]["latitude"], gares[city]["longitude"]]
-            origin = {"latLng": {"latitude": origin_coords[0], "longitude": origin_coords[1]}}
-    else:
-        origin_coords = [gares[city]["latitude"], gares[city]["longitude"]]
-        origin = {"latLng": {"latitude": origin_coords[0], "longitude": origin_coords[1]}}
+    origin = {"latLng": {"latitude": address_coords[0], "longitude": address_coords[1]}}
 
     # --- Parcourir les meilleurs arrêts ---
 
@@ -290,7 +335,7 @@ def _is_itinerary_on_target_day(transit_route, target_date):
         return False
 
 
-def compute_return_transit(path, return_time, city, G, stops_data, gares, address):
+def compute_return_transit(path, return_time, G, stops_data, address):
     """
     Calcule le trajet retour en transport en commun depuis le dernier point du path jusqu'à la ville.
     Ajoute également la marche jusqu'au premier arrêt de TC dans le path.
@@ -299,7 +344,6 @@ def compute_return_transit(path, return_time, city, G, stops_data, gares, addres
     un itinéraire d'un autre jour (veille, avant-veille, etc.), l'arrêt est rejeté et
     on teste l'arrêt suivant.
     """
-    print(f" >>> Début du calcul du trajet retour pour la ville : {city}")
 
     if isinstance(path, tuple):
         path = list(path)
@@ -322,19 +366,8 @@ def compute_return_transit(path, return_time, city, G, stops_data, gares, addres
         print(f" Test de l'arrêt {i} : {stop_id} (coord={stop_coord})")
 
         origin = {"location": {"latLng": {"latitude": stop_coord[1], "longitude": stop_coord[0]}}}
-        city_coords = [gares[city]["latitude"], gares[city]["longitude"]]
-        destination = {"location": {"latLng": {"latitude": city_coords[0], "longitude": city_coords[1]}}}
-
-        if address:
-            address_coords = geocode_address(address)
-            if address_coords:
-                destination = {"location": {"latLng": {"latitude": address_coords[0], "longitude": address_coords[1]}}}
-            else:
-                print(f"Adresse non géocodée, utilisation du centre de {city}")
-                destination = {"location": {"latLng": {"latitude": city_coords[0], "longitude": city_coords[1]}}}
-        else:
-            destination = {"location": {"latLng": {"latitude": city_coords[0], "longitude": city_coords[1]}}}
-
+        address_coords = geocode_address(address)
+        destination = {"location": {"latLng": {"latitude": address_coords[0], "longitude": address_coords[1]}}}
 
         if getattr(settings, "USE_MOCK_ROUTE_CREATION", False):
             # --- MODE MOCK ---
@@ -353,7 +386,7 @@ def compute_return_transit(path, return_time, city, G, stops_data, gares, addres
                     first_step = transit_steps[0]
                     last_step = transit_steps[-1]
                     first_step["startLocation"]["latLng"] = {"latitude": last_point[1], "longitude": last_point[0]}
-                    last_step["endLocation"]["latLng"] = {"latitude": city_coords[0], "longitude": city_coords[1]}
+                    last_step["endLocation"]["latLng"] = {"latitude": address_coords[0], "longitude": address_coords[1]}
                     last_step["transitDetails"]["stopDetails"]["arrivalTime"] = return_time.isoformat()
                 leg["duration"] = "7200s"
             resp = travel_back

@@ -20,7 +20,6 @@ from .elevation import get_elevations, smooth_elevations, compute_total_ascent
 
 def compute_best_route(
     randomness=0.2,
-    city="Lyon",
     massif="Chartreuse",
     departure_time: datetime = None,
     return_time: datetime = None,
@@ -42,14 +41,13 @@ def compute_best_route(
     """
 
     massif_clean = slugify(massif)
-    city_clean = slugify(city)
 
-    stops_path = f"data/output/{massif_clean}_{city_clean}_stop_node_mapping.json"
+    stops_path = f"data/output/{massif_clean}_arrets_stop_node_mapping.json"
     graph_path = f"data/output/{massif_clean}_hiking_graph.gpickle"
     poi_file = f"data/output/{massif_clean}_poi_scores.geojson"
-    gares_path = "data/input/gares_departs.json"
+    hubs_entree_path = f"data/output/{massif_clean}_hubs_entree.geojson"
 
-    for path in [stops_path, graph_path, gares_path, poi_file]:
+    for path in [stops_path, graph_path, poi_file, hubs_entree_path]:
         if not os.path.exists(path):
             raise FileNotFoundError(f"❌ Fichier introuvable pour le massif {massif} : {path}")
         
@@ -60,11 +58,11 @@ def compute_best_route(
     with open(graph_path, "rb") as f:
         G = pickle.load(f)
 
-    with open(gares_path, "r", encoding="utf-8") as f:
-        gares = json.load(f)
-
     with open(poi_file, "r", encoding="utf-8") as f:
         poi_data = json.load(f)
+
+    with open(hubs_entree_path, "r", encoding="utf-8") as f:
+        hubs_entree_data = json.load(f)
 
     if getattr(settings, "USE_MOCK_DATA", False):
         file_path = os.path.join(settings.BASE_DIR, "hello/static/hello/data/optimized_routes_example.geojson")
@@ -78,9 +76,9 @@ def compute_best_route(
 
     # --- Étape 1 : Récupérer l'itinéraire de transport en commun ---
     travel_go = get_best_transit_route(
-        randomness=randomness, city=city, departure_time=departure_time, 
-        return_time=return_time, stops_data=stops_data, gares=gares, 
-        address=address, transit_priority=transit_priority
+        randomness=randomness, departure_time=departure_time, 
+        return_time=return_time, stops_data=stops_data, 
+        address=address, transit_priority=transit_priority, hubs_entree_data=hubs_entree_data
     )
     
     # --- Étape 2 : Extraire les coordonnées du dernier point de transit ---
@@ -109,7 +107,7 @@ def compute_best_route(
     
     # --- Étape 5 : Calculer l'itinéraire retour en transport en commun ---
     path, travel_return, dist = compute_return_transit(
-        path, return_time, city, G=G, stops_data=stops_data, gares=gares, address=address
+        path, return_time, G=G, stops_data=stops_data, address=address
     )
     print(f"Distance totale avec retour en TC : {dist/1000:.1f} km")
     
@@ -161,9 +159,9 @@ def compute_best_route(
 
     # Générer un nom de fichier unique pour le GeoJSON et le GPX
     try:
-        params_part = f"{city_clean}_{massif_clean}_{slugify(level)}_r{int(randomness*100)}"
+        params_part = f"{address}_{massif_clean}_{slugify(level)}_r{int(randomness*100)}"
     except Exception:
-        params_part = f"{city_clean}_{massif_clean}"
+        params_part = f"{address}_{massif_clean}"
     ts_ms = int(datetime.utcnow().timestamp() * 1000)
     filename_base = f"route_{params_part}_{ts_ms}"
     output_dir = os.path.join(settings.BASE_DIR, "hello", "static", "hello", "data")
@@ -183,7 +181,6 @@ def compute_best_route(
 if __name__ == "__main__":
     # Exemple de paramètres
     randomness = 0.25
-    city = "Lyon"
     departure_time = "2025-08-26T08:00:00"
     return_time = "2025-08-26T20:00:00"
     level = "intermediaire"
@@ -198,7 +195,6 @@ if __name__ == "__main__":
     try:
         result = compute_best_route(
             randomness=randomness,
-            city=city,
             departure_time=departure_time,
             return_time=return_time,
             level=level,
