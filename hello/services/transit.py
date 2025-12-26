@@ -251,7 +251,7 @@ def get_best_transit_route(randomness=0.25, departure_time=None, return_time=Non
             return data
 
         except Exception as e:
-            time.sleep(10.05)
+            time.sleep(0.05)
             print(f"⚠️ Tentative échouée pour l'arrêt {stop_id} ({score_final:.3f}): {e}")
             continue
 
