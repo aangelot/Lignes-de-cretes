@@ -393,7 +393,7 @@ def compute_return_transit(path, return_time, G, stops_data, address):
         print(f" Test de l'arrêt {i} : {stop_id} (coord={stop_coord})")
 
         origin = {"location": {"latLng": {"latitude": stop_coord[1], "longitude": stop_coord[0]}}}
-        address_coords = geocode_address(address)
+        address_coords = _coords_from_station_label(address) or geocode_address(address)
         destination = {"location": {"latLng": {"latitude": address_coords[0], "longitude": address_coords[1]}}}
 
         if getattr(settings, "USE_MOCK_ROUTE_CREATION", False):
