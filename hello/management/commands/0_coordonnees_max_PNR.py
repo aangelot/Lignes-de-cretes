@@ -2,13 +2,13 @@ import json
 import os
 
 # Charger le fichier contenant tous les PNR
-with open("data/input/PNR.geojson", "r", encoding="utf-8") as f:
+with open("data/input/massifs.geojson", "r", encoding="utf-8") as f:
     geojson = json.load(f)
 
 features_output = []
 
 for feature in geojson["features"]:
-    name = feature["properties"].get("DRGP_L_LIB", "PNR inconnu")
+    name = feature["properties"].get("DRGP_L_LIB") or feature["properties"].get("nom_site", "Inconnu")
     geometry = feature["geometry"]
 
     # Gestion des différents types de géométrie (Polygon ou MultiPolygon)
@@ -58,7 +58,7 @@ output_geojson = {
 
 # Sauvegarder dans le dossier data/input/
 os.makedirs("data/input", exist_ok=True)
-with open("data/input/PNR_coord_max.geojson", "w", encoding="utf-8") as f:
+with open("data/input/massifs_coord_max.geojson", "w", encoding="utf-8") as f:
     json.dump(output_geojson, f, ensure_ascii=False, indent=2)
 
-print("✅ Coordonnées extrêmes enregistrées dans data/input/PNR_coord_max.geojson")
+print("✅ Coordonnées extrêmes enregistrées dans data/input/massifs_coord_max.geojson")

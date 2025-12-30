@@ -58,11 +58,11 @@ def main(massif_name: str):
     print(f"🔍 Chargement du massif '{massif_name}'…")
 
     # Lecture du fichier PNR
-    gdf_parks = gpd.read_file("data/input/PNR.geojson")
+    gdf_parks = gpd.read_file("data/input/massifs.geojson")
     gdf_massif = gdf_parks[gdf_parks["DRGP_L_LIB"] == massif_name]
 
     if gdf_massif.empty:
-        print(f"❌ Massif '{massif_name}' introuvable dans PNR.geojson")
+        print(f"❌ Massif '{massif_name}' introuvable dans massifs.geojson")
         sys.exit(1)
 
     # Buffer 2 km autour du massif

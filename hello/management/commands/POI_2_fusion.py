@@ -19,7 +19,7 @@ slug_massif = slugify(massif_name)
 # --- Fichiers d'entrée ---
 sommets_path = f"data/intermediate/{slug_massif}_sommets_osm.geojson"
 poi_path = f"data/intermediate/{slug_massif}_poi_google_maps.geojson"
-pnr_path = "data/input/PNR.geojson"
+pnr_path = "data/input/massifs.geojson"
 
 # --- Vérification existence ---
 for path in [sommets_path, poi_path, pnr_path]:

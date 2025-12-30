@@ -36,11 +36,11 @@ def process_arrets(massif: str):
     gdf_stops = gdf_stops.to_crs(epsg=2154)
 
     # 4. Charger les parcs naturels et filtrer celui correspondant au massif
-    gdf_parks = gpd.read_file("data/input/PNR.geojson")
+    gdf_parks = gpd.read_file("data/input/massifs.geojson")
     gdf_park = gdf_parks[gdf_parks["DRGP_L_LIB"] == massif].to_crs(epsg=2154)
 
     if gdf_park.empty:
-        raise ValueError(f"Massif '{massif}' introuvable dans PNR.geojson")
+        raise ValueError(f"Massif '{massif}' introuvable dans massifs.geojson")
 
     # 5. Sélectionner les arrêts situés dans le parc
     gdf_in_park = gpd.sjoin(gdf_stops, gdf_park, how="inner", predicate="within")

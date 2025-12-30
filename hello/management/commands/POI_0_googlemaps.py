@@ -40,7 +40,7 @@ def generer_grille(bbox, pas_lat, pas_lng):
 
 
 def fetch_pois(massif: str):
-    fichier_geojson = "data/input/PNR_coord_max.geojson"
+    fichier_geojson = "data/input/massifs_coord_max.geojson"
     bbox = lire_bbox_pnr(fichier_geojson, massif)
 
     pas_lat = 0.04

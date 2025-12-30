@@ -61,8 +61,8 @@ output_file = "data/output/zone_unique_Lyonnais.geojson"
 zone_unique[['DRGP_C_COD', 'DRGP_L_LIB', 'geometry']].to_file(output_file, driver='GeoJSON')
 print(f"✅ GeoJSON de la zone unique enregistré : {output_file}")
 
-# ---------- 5️⃣ Ajouter cette feature dans PNR.geojson ----------
-pnr_file = "data/input/PNR.geojson"
+# ---------- 5️⃣ Ajouter cette feature dans massifs.geojson ----------
+pnr_file = "data/input/massifs.geojson"
 
 # Lire le PNR existant
 with open(pnr_file, "r", encoding="utf-8") as f:
@@ -74,7 +74,7 @@ zone_geojson_feature = json.loads(zone_unique[['DRGP_C_COD', 'DRGP_L_LIB', 'geom
 # Ajouter la feature au PNR
 pnr_data['features'].append(zone_geojson_feature)
 
-# Réécrire le PNR.geojson
+# Réécrire le massifs.geojson
 with open(pnr_file, "w", encoding="utf-8") as f:
     json.dump(pnr_data, f, indent=2, ensure_ascii=False)
 

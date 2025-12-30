@@ -10,10 +10,10 @@ def add_distance_to_border(massif: str):
     gdf_stops = gpd.read_file(file_path)
 
     # Charger le parc correspondant
-    gdf_pnr = gpd.read_file("data/input/PNR.geojson")
+    gdf_pnr = gpd.read_file("data/input/massifs.geojson")
     gdf_massif = gdf_pnr[gdf_pnr["DRGP_L_LIB"] == massif]
     if gdf_massif.empty:
-        raise ValueError(f"Le parc du massif '{massif}' est introuvable dans PNR.geojson")
+        raise ValueError(f"Le parc du massif '{massif}' est introuvable dans massifs.geojson")
 
     # Reprojection en Lambert 93 pour le calcul en mètres
     gdf_stops = gdf_stops.to_crs(epsg=2154)

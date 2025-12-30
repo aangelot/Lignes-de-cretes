@@ -9,7 +9,7 @@ import os
 
 # ---------- Helpers ----------
 def choisir_massif():
-    gdf_parks = gpd.read_file("data/input/PNR.geojson")
+    gdf_parks = gpd.read_file("data/input/massifs.geojson")
     massifs = sorted(gdf_parks["DRGP_L_LIB"].unique())
     print("Massifs disponibles :")
     for i, massif in enumerate(massifs, start=1):
@@ -25,8 +25,8 @@ def choisir_massif():
     sys.exit(1)
 
 def read_bbox_from_coord_max(massif):
-    """Lit la bbox (lat_min, lng_min, lat_max, lng_max) depuis data/input/PNR_coord_max.geojson."""
-    path = "data/input/PNR_coord_max.geojson"
+    """Lit la bbox (lat_min, lng_min, lat_max, lng_max) depuis data/input/massifs_coord_max.geojson."""
+    path = "data/input/massifs_coord_max.geojson"
     if not os.path.exists(path):
         return None
     with open(path, "r", encoding="utf-8") as f:
