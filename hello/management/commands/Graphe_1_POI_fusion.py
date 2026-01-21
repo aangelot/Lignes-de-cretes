@@ -22,6 +22,10 @@ def main():
     gdf_poi = gpd.read_file(poi_file)
     gdf_paths = gpd.read_file(paths_file)
 
+    # Afficher le nombre initial de POI
+    initial_poi_count = len(gdf_poi)
+    print(f"📍 Nombre initial de POI : {initial_poi_count}")
+
     # Reprojeter en métrique (Lambert 93) pour calculs de distance
     gdf_poi = gdf_poi.to_crs(epsg=2154)
     gdf_paths = gdf_paths.to_crs(epsg=2154)
@@ -36,11 +40,37 @@ def main():
         gdf_poi["geometry"] = gdf_poi.apply(make_point, axis=1)
         gdf_poi = gdf_poi.set_geometry("geometry")
 
-    # Initialiser l'agrégation
-    gdf_paths["poi_score_total"] = 0.0
+    # Vérifier que chaque POI a un chemin à moins de 200 mètres
+    paths_sindex = gdf_paths.sindex
+    poi_to_keep = []
+    
+    for idx, poi in gdf_poi.iterrows():
+        poi_point = poi.geometry
+        if poi_point is None:
+            continue
+        
+        buffer = poi_point.buffer(200)  # 200 m
+        possible_idxs = list(paths_sindex.intersection(buffer.bounds))
+        
+        has_nearby_path = False
+        for path_idx in possible_idxs:
+            path_geom = gdf_paths.at[path_idx, "geometry"]
+            if path_geom is not None and buffer.intersects(path_geom):
+                has_nearby_path = True
+                break
+        
+        if has_nearby_path:
+            poi_to_keep.append(idx)
+    
+    # Nombre de POI supprimés
+    poi_removed_count = len(gdf_poi) - len(poi_to_keep)
+    gdf_poi = gdf_poi.loc[poi_to_keep]
 
     # Index spatial
     paths_sindex = gdf_paths.sindex
+
+    # Initialiser l'agrégation
+    gdf_paths["poi_score_total"] = 0.0
 
     # Pour chaque POI, buffer de 100 m et ajouter son score
     for _, poi in gdf_poi.iterrows():
@@ -82,11 +112,18 @@ def main():
     # Reprojeter en WGS84
     gdf_paths = gdf_paths.to_crs(epsg=4326)
 
-    # Sauvegarder
+    # Sauvegarder les chemins
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     gdf_paths.to_file(output_file, driver="GeoJSON")
 
-    print(f"✅ Résultat enregistré dans {output_file}")
+    # Sauvegarder les POI filtrés
+    gdf_poi = gdf_poi.to_crs(epsg=4326)
+    os.makedirs(os.path.dirname(poi_file), exist_ok=True)
+    gdf_poi.to_file(poi_file, driver="GeoJSON")
+
+    print(f"✅ Résultat des chemins enregistré dans {output_file}")
+    print(f"✅ Résultat des POI enregistré dans {poi_file}")
+    print(f"🗑️  Nombre de POI supprimés : {poi_removed_count}")
 
 
 if __name__ == "__main__":
