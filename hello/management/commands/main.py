@@ -10,7 +10,7 @@ import os
 # ---------- Helpers ----------
 def choisir_massif():
     gdf_parks = gpd.read_file("data/input/massifs.geojson")
-    massifs = sorted(gdf_parks["DRGP_L_LIB"].unique())
+    massifs = sorted(gdf_parks["DRGP_L_LIB"].fillna(gdf_parks["nom_site"]).unique())
     print("Massifs disponibles :")
     for i, massif in enumerate(massifs, start=1):
         print(f"{i}. {massif}")
