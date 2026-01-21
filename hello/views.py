@@ -4,9 +4,40 @@ from hello.services.trouver_chemin import compute_best_route
 import traceback
 import os
 import json
+import csv
+from datetime import datetime
 
 def index(request):
     return render(request, "hello/index.html")
+
+def log_get_route_call(massif, address, level, randomness_str, departure_datetime, return_datetime, transit_priority, result):
+    """Enregistre l'appel à get_route dans un fichier CSV."""
+    logs_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "logs")
+    os.makedirs(logs_dir, exist_ok=True)
+    
+    csv_file = os.path.join(logs_dir, "appels_get_route.csv")
+    
+    # Vérifier si le fichier existe pour ajouter l'en-tête si nécessaire
+    file_exists = os.path.isfile(csv_file)
+    
+    with open(csv_file, "a", newline="", encoding="utf-8") as f:
+        fieldnames = ["date_appel", "massif", "address", "level", "randomness", "departure_datetime", "return_datetime", "transit_priority", "resultat"]
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        
+        if not file_exists:
+            writer.writeheader()
+        
+        writer.writerow({
+            "date_appel": datetime.now().isoformat(),
+            "massif": massif,
+            "address": address,
+            "level": level,
+            "randomness": randomness_str,
+            "departure_datetime": departure_datetime,
+            "return_datetime": return_datetime,
+            "transit_priority": transit_priority,
+            "resultat": result
+        })
 
 def get_route(request):
     if request.method == "GET":
@@ -46,6 +77,9 @@ def get_route(request):
             )
             print("Itinéraire calculé avec succès.")
 
+            # Enregistrement du succès
+            log_get_route_call(massif, address, level, randomness_str, departure_datetime, return_datetime, transit_priority, "Succès")
+
             # `compute_best_route` now sauvegarde le geojson et le gpx et
             # ajoute la clé `generated_filename` au GeoJSON retourné.
             return JsonResponse(geojson_data)
@@ -53,6 +87,10 @@ def get_route(request):
         except Exception as e:
             print("❌ ERREUR SERVEUR INTERNE:")
             print(traceback.format_exc())
+            
+            # Enregistrement de l'erreur
+            log_get_route_call(massif, address, level, randomness_str, departure_datetime, return_datetime, transit_priority, str(e))
+            
             return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "Méthode non autorisée"}, status=405)
