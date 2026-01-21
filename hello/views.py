@@ -1,6 +1,7 @@
 from django.shortcuts import render
 from django.http import JsonResponse
 from hello.services.trouver_chemin import compute_best_route
+from hello.services.progress import get_current_message
 import traceback
 import os
 import json
@@ -9,6 +10,12 @@ from datetime import datetime
 
 def index(request):
     return render(request, "hello/index.html")
+
+def get_progress(request):
+    """Retourne le message de progression courant."""
+    if request.method == "GET":
+        message = get_current_message()
+        return JsonResponse({"message": message})
 
 def log_get_route_call(massif, address, level, randomness_str, departure_datetime, return_datetime, transit_priority, result):
     """Enregistre l'appel à get_route dans un fichier CSV."""
@@ -76,6 +83,11 @@ def get_route(request):
                 transit_priority=transit_priority,
             )
             print("Itinéraire calculé avec succès.")
+
+            # Récupérer le dernier message de progression
+            progress_message = get_current_message()
+            if progress_message:
+                geojson_data["progress_message"] = progress_message
 
             # Enregistrement du succès
             log_get_route_call(massif, address, level, randomness_str, departure_datetime, return_datetime, transit_priority, "Succès")

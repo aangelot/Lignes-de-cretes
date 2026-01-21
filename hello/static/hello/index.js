@@ -354,9 +354,12 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
 
         const submitBtn = document.getElementById('submit-btn');
+        const progressDiv = document.getElementById('progress-message');
         submitBtn.disabled = true;
         const originalBtnText = submitBtn.textContent;
         submitBtn.textContent = 'Calcul en cours…';
+        progressDiv.textContent = '';
+        progressDiv.style.display = 'block';
 
         clearMapOverlays();
 
@@ -383,6 +386,37 @@ document.addEventListener('DOMContentLoaded', () => {
         params.append('transit_priority', transit_priority);
 
         const url = `/get_route/?${params.toString()}`;
+
+        // Démarrer le polling du message de progression
+        let progressInterval = null;
+        let lastMessage = '';
+        
+        const startProgressPolling = () => {
+            progressInterval = setInterval(async () => {
+                try {
+                    const progressResponse = await fetch('/get_progress/');
+                    const progressData = await progressResponse.json();
+                    if (progressData.message && progressData.message !== lastMessage) {
+                        lastMessage = progressData.message;
+                        progressDiv.textContent = progressData.message;
+                    }
+                } catch (err) {
+                    console.warn('Erreur lors de la récupération du message de progression:', err);
+                }
+            }, 1000); // Mettre à jour toutes les secondes
+        };
+
+        const stopProgressPolling = () => {
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+            }
+            progressDiv.textContent = '';
+            progressDiv.style.display = 'none';
+        };
+
+        startProgressPolling();
+
         try {
             const response = await fetch(url);
             if (!response.ok) throw new Error('Erreur lors de la récupération du tracé');
@@ -533,6 +567,7 @@ document.addEventListener('DOMContentLoaded', () => {
             alert(err.message);
             console.error(err);
         } finally {
+            stopProgressPolling();
             submitBtn.disabled = false;
             submitBtn.textContent = originalBtnText;
         }

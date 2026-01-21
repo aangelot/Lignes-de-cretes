@@ -454,4 +454,11 @@ a:hover {
     margin: 2px 0;
 }
 
-
+.progress-message {
+    text-align: center;
+    margin-top: 20px;
+    color: #666;
+    font-size: 0.9em;
+    min-height: 1.5em;
+    display: none;
+}

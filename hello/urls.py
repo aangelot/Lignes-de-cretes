@@ -4,5 +4,7 @@ from . import views
 urlpatterns = [
     path('', views.index, name='index'),                  # Page d'accueil
     path('get_route/', views.get_route, name='get_route'),  # API GeoJSON
+    path('get_progress/', views.get_progress, name='get_progress'),  # API progression
     path('gares/', views.gares_list, name='gares_list'),  # Liste des gares pour autocomplete
 ]
+

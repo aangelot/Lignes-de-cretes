@@ -8,6 +8,7 @@ import random
 from networkx import NetworkXNoPath, shortest_path
 from shapely.geometry import LineString, Point
 from .geotools import haversine, find_nearest_node, path_has_crossing
+from .progress import add_progress_message
 
 
 def best_hiking_path(start_coord, max_distance_m, G, poi_data, randomness=0.3, penalty_factor=100):
@@ -126,6 +127,9 @@ def best_hiking_path(start_coord, max_distance_m, G, poi_data, randomness=0.3, p
             best_dist += seg_len
             current_node = path_nodes[-1]
             visited_pois.add(poi["id"])
+            
+            # Message de progression : POI sélectionné
+            add_progress_message(f"Prochaine étape : {poi['id']} • Distance en cours : {best_dist/1000:.1f} km")
 
             # --- Ajouter POI proches du segment et marquer arêtes ---
             if len(path_nodes) >= 2:
