@@ -11,7 +11,7 @@ def add_distance_to_border(massif: str):
 
     # Charger le parc correspondant
     gdf_pnr = gpd.read_file("data/input/massifs.geojson")
-    gdf_massif = gdf_pnr[gdf_pnr["DRGP_L_LIB"] == massif]
+    gdf_massif = gdf_pnr[(gdf_pnr["DRGP_L_LIB"] == massif) | (gdf_pnr["nom_site"] == massif)]
     if gdf_massif.empty:
         raise ValueError(f"Le parc du massif '{massif}' est introuvable dans massifs.geojson")
 

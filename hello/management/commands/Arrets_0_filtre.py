@@ -21,11 +21,15 @@ def process_arrets(massif: str):
 
     # 4. Charger les parcs naturels et filtrer celui correspondant au massif
     gdf_parks = gpd.read_file("data/input/massifs.geojson")
-    gdf_park = gdf_parks[gdf_parks["DRGP_L_LIB"] == massif].to_crs(epsg=2154)
+    gdf_park = gdf_parks[
+        (gdf_parks["DRGP_L_LIB"] == massif) | (gdf_parks["nom_site"] == massif)
+    ].to_crs(epsg=2154)
 
     if gdf_park.empty:
         raise ValueError(f"Massif '{massif}' introuvable dans massifs.geojson")
-
+    
+    gdf_park = gdf_park.buffer(200)
+    
     # 5. Sélectionner les arrêts situés à l’intérieur du parc
     gdf_in_park = gpd.sjoin(gdf_stops, gdf_park, how="inner", predicate="within")
 
@@ -62,7 +66,7 @@ def process_arrets(massif: str):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
+    if len(sys.argv) < 1:
         print("Usage: python Arrets_0_filtre.py <Massif>")
         sys.exit(1)
 

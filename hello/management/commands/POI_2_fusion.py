@@ -34,7 +34,8 @@ with open(poi_path, "r", encoding="utf-8") as f:
     poi_data = json.load(f)
 
 pnr = gpd.read_file(pnr_path)
-pnr = pnr[pnr["DRGP_L_LIB"].str.lower() == massif_name.lower()]
+pnr = pnr[(pnr["DRGP_L_LIB"].str.lower() == massif_name.lower()) | (pnr["nom_site"].str.lower() == massif_name.lower())]
+
 if pnr.empty:
     raise ValueError(f"❌ Aucun PNR trouvé pour le massif '{massif_name}' dans {pnr_path}")
 

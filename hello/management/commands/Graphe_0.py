@@ -59,7 +59,8 @@ def main(massif_name: str):
 
     # Lecture du fichier PNR
     gdf_parks = gpd.read_file("data/input/massifs.geojson")
-    gdf_massif = gdf_parks[gdf_parks["DRGP_L_LIB"] == massif_name]
+    gdf_massif = gdf_parks[(gdf_parks["DRGP_L_LIB"] == massif_name) | (gdf_parks["nom_site"] == massif_name)]
+
 
     if gdf_massif.empty:
         print(f"❌ Massif '{massif_name}' introuvable dans massifs.geojson")
