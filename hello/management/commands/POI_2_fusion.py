@@ -80,10 +80,10 @@ merged = [f for f in merged if f.get("titre")]
 
 # Expressions à exclure
 expressions_exclure = [
-    "cannoying", "vélo", "quad", "moto", "cross", "hotel", "hébergement",
+    "cannoying", "vélo", "vtt", "quad", "moto", "cross", "hotel", "hébergement",
     "dortoirs", "chambre", "parking", "via ferrata", "escalade", "ferme",
     "route forestière", "raquettes", "4x4", "ski", "bike", "onf", "office",
-    "covoiturage", "parapente", "spa", "centre équestre"
+    "covoiturage", "parapente", "spa", "centre équestre", "restaurant"
 ]
 
 # Filtrer et capitaliser
