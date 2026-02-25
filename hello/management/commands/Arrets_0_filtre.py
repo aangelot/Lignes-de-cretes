@@ -29,6 +29,7 @@ def process_arrets(massif: str):
         raise ValueError(f"Massif '{massif}' introuvable dans massifs.geojson")
     
     gdf_park = gdf_park.buffer(200)
+    gdf_park = gpd.GeoDataFrame(geometry=gdf_park, crs=2154)
     
     # 5. Sélectionner les arrêts situés à l’intérieur du parc
     gdf_in_park = gpd.sjoin(gdf_stops, gdf_park, how="inner", predicate="within")
