@@ -11,18 +11,35 @@ def get_elevations(path):
     """
     Récupère les altitudes depuis l'API Open-Elevation.
     path : liste de tuples (lon, lat)
+
+    Essaie jusqu'à 3 fois en cas d'erreur ou de réponse vide.
+    Si aucune tentative ne donne de résultat utilisable (ou que l'API renvoie
+    un objet nul), on renvoie une liste de zéros et on note l'échec via les
+    messages de progression.
     """
-    # informer l'utilisateur que le calcul est en cours
     add_progress_message("Calcul des altitudes en cours...")
 
     locations = [{"latitude": lat, "longitude": lon} for lon, lat in path]
     url = "https://api.open-elevation.com/api/v1/lookup"
-    response = requests.post(url, json={"locations": locations})
-    response.raise_for_status()
-    results = response.json()["results"]
-    elevations = [pt["elevation"] for pt in results]
-    add_progress_message("Altitudes récupérées")
-    return elevations
+
+    for attempt in range(1, 4):
+        try:
+            response = requests.post(url, json={"locations": locations}, timeout=10)
+            response.raise_for_status()
+            results = response.json().get("results")
+            if results:
+                elevations = [pt.get("elevation", 0) for pt in results]
+                add_progress_message("Altitudes récupérées")
+                return elevations
+            # réponse vide
+            raise ValueError("Résultat d'altitude vide")
+        except Exception as e:
+            if attempt < 3:
+                continue
+            else:
+                # renvoyer des zéros pour chaque point
+                return [0] * len(path)
+    return [0] * len(path)
 
 
 def smooth_elevations(elevations, window=3):

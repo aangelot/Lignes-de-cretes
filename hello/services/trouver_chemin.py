@@ -117,6 +117,9 @@ def compute_best_route(
     
     # --- Étape 5b : Récupérer les élévations ---
     elevations = get_elevations(path)
+    # si la liste retournée est composée uniquement de zéros, l'API a échoué
+    elevation_failed = all(ele == 0 for ele in elevations)
+
     smoothed_elevations = smooth_elevations(elevations, window=10)
     total_ascent = compute_total_ascent(smoothed_elevations)
 
@@ -124,6 +127,11 @@ def compute_best_route(
     path = [
         [lon, lat, round(ele)] for (lon, lat), ele in zip(path, smoothed_elevations)
     ]
+
+    # Propager l'information d'échec dans les propriétés
+    extra_props = {}
+    if elevation_failed:
+        extra_props["elevation_error"] = True
 
     # Sauvegarde des arrêts inaccessibles
     with open(stops_path, "w", encoding="utf-8") as f:
@@ -133,10 +141,7 @@ def compute_best_route(
     start_coord = path[0]
     end_coord = path[-1]
 
-    feature = {
-        "type": "Feature",
-        "geometry": mapping(LineString(path)),
-        "properties": {
+    props = {
             "start_coord": start_coord,
             "end_coord": end_coord,
             "path_length": dist,
@@ -144,6 +149,14 @@ def compute_best_route(
             "transit_back": travel_return,
             "path_elevation": total_ascent
         }
+    # ajouter les propriétés facultatives (ex: erreur d'altitude)
+    props.update(extra_props)
+    print(props)
+
+    feature = {
+        "type": "Feature",
+        "geometry": mapping(LineString(path)),
+        "properties": props
     }
     
     # --- Étape 7 : Extraire les POI proches du tracé (<= 200m) ---

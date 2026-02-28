@@ -211,6 +211,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     <p><strong>Altitude minimale :</strong> ${minEle.toFixed(0)} m</p>
                     <p><strong>Altitude maximale :</strong> ${maxEle.toFixed(0)} m</p>
                 `;
+                // message d'erreur éventuel sur l'élévation
+                if (props.elevation_error) {
+                    legendDiv.innerHTML +=
+                        `<p style="color:#ef8409;"><strong>⚠️ Altitude non récupérée</strong></p>`;
+                }
             }
 
         }, 100); // 100ms pour être sûr que le DOM a pris la taille
