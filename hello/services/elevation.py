@@ -4,6 +4,7 @@ Récupération, lissage et calcul de dénivelés.
 """
 
 import requests
+from .progress import add_progress_message
 
 
 def get_elevations(path):
@@ -11,12 +12,16 @@ def get_elevations(path):
     Récupère les altitudes depuis l'API Open-Elevation.
     path : liste de tuples (lon, lat)
     """
+    # informer l'utilisateur que le calcul est en cours
+    add_progress_message("Calcul des altitudes en cours...")
+
     locations = [{"latitude": lat, "longitude": lon} for lon, lat in path]
     url = "https://api.open-elevation.com/api/v1/lookup"
     response = requests.post(url, json={"locations": locations})
     response.raise_for_status()
     results = response.json()["results"]
     elevations = [pt["elevation"] for pt in results]
+    add_progress_message("Altitudes récupérées")
     return elevations
 
 
@@ -45,4 +50,6 @@ def compute_total_ascent(elevations, min_diff=2):
         delta = elevations[i] - elevations[i-1]
         if delta > min_diff:
             total_ascent += delta
-    return round(total_ascent)
+    ascent = round(total_ascent)
+    add_progress_message("Dénivelé total calculé, ça grimpe !")
+    return ascent
