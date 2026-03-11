@@ -25,9 +25,9 @@ WORKDIR /app
 
 # Copier requirements et installer Python
 COPY --chown=appuser:appuser requirements.txt .
-RUN pip install --upgrade pip \
- && pip install --no-cache-dir -r requirements.txt \
- && pip install gunicorn  # installer gunicorn
+RUN pip install --upgrade pip setuptools wheel cython numpy \
+ && pip install --no-cache-dir --no-build-isolation -r requirements.txt \
+ && pip install gunicorn
 
 # Copier le code de l'application
 COPY --chown=appuser:appuser . .
