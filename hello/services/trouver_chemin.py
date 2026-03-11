@@ -16,7 +16,6 @@ from .geotools import save_geojson_gpx
 from .transit import get_best_transit_route, compute_max_hiking_distance, compute_return_transit
 from .hiking import best_hiking_path, extract_pois_near_path
 from .elevation import get_elevations, smooth_elevations, compute_total_ascent
-from .progress import reset_progress
 
 
 def compute_best_route(
@@ -41,8 +40,6 @@ def compute_best_route(
     7. Retourne un GeoJSON avec tous les détails
     """
     
-    # Réinitialiser les messages de progression
-    reset_progress()
 
     massif_clean = slugify(massif)
 

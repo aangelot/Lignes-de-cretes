@@ -15,7 +15,6 @@ from zoneinfo import ZoneInfo
 from django.conf import settings
 from networkx import shortest_path
 from .geotools import geocode_address, haversine, find_nearest_node
-from .progress import add_progress_message
 
 # Charger la clé API Google
 from dotenv import load_dotenv
@@ -70,9 +69,6 @@ def get_best_transit_route(randomness=0.25, departure_time=None, return_time=Non
     - Départ soir (>18h) : max +18h
     - Vérifie que l'arrivée sur place laisse au moins 4h de marche avant le retour
     """
-    # Message de progression : début de la recherche du meilleur itinéraire TC
-    add_progress_message("Recherche du meilleur itinéraire de transport en commun...")
-    
     # Tenter de récupérer les coordonnées à partir du libellé de gare (fallback geocoding)
     address_coords = _coords_from_station_label(address) or geocode_address(address)
     print(f"Coordonnées géocodées / station de l'adresse '{address}': {address_coords}")
@@ -253,10 +249,6 @@ def get_best_transit_route(randomness=0.25, departure_time=None, return_time=Non
 
             print(f"✅ Itinéraire valide trouvé depuis l'arrêt {stop_id} (score={score_final:.3f})")
             
-            # Message de progression : on a trouvé le point d'arrivée du TC
-            arrival_time_display = arrival_time.strftime("%H:%M")
-            add_progress_message(f"Point d'arrivée du transport en commun trouvé. Arrivée à {arrival_time_display}")
-            
             return data
 
         except Exception as e:
@@ -381,9 +373,6 @@ def compute_return_transit(path, return_time, G, stops_data, address):
     on teste l'arrêt suivant.
     """
 
-    # Message de progression : début de la recherche du trajet retour
-    add_progress_message("Recherche de l'itinéraire de retour en transport en commun...")
-
     if isinstance(path, tuple):
         path = list(path)
 
@@ -473,9 +462,6 @@ def compute_return_transit(path, return_time, G, stops_data, address):
             stops_data[stop_id]["failure_count"] = 0
             return_transit_route = resp
             first_step_start = transit_steps[0]["startLocation"]["latLng"]
-            
-            # Message de progression : itinéraire retour trouvé
-            add_progress_message(f"Itinéraire retour trouvé !")
             break
         else:
             print(f" ⚠ Aucun transit trouvé depuis l'arrêt {stop_id}.")
