@@ -82,8 +82,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-    const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
+    const osm = L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap France | &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
 
     const satellite = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
@@ -499,6 +499,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (props['transit_' + type]) {
                     afficherTransit(props['transit_' + type], modal.querySelector('.modal-body'));
+                }
+
+                if (type === 'back' && props.return_error_message) {
+                    const errorHtml = `
+                        <div class="error-message" style="color:#d32f2f; margin-top:1em; border:1px solid rgba(211,47,47,0.25); padding:0.75em; background:rgba(211,47,47,0.08); border-radius:6px;">
+                            <strong>Retour non trouvé :</strong><br>${props.return_error_message}
+                        </div>
+                    `;
+                    const body = modal.querySelector('.modal-body');
+                    if (body) {
+                        body.innerHTML += errorHtml;
+                    }
                 }
 
                 // État initial : Aller et Retour repliés

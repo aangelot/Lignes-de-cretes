@@ -1,14 +1,19 @@
-from django.shortcuts import render
-from django.http import JsonResponse
-from hello.services.trouver_chemin import compute_best_route
 import traceback
 import os
 import json
 import csv
 from datetime import datetime
+from django.shortcuts import render
+from django.http import JsonResponse
+from hello.services.trouver_chemin import compute_best_route
+from hello.constants import RANDOMNESS_OPTIONS, RANDOMNESS_DEFAULT
+
 
 def index(request):
-    return render(request, "hello/index.html")
+    return render(request, "hello/index.html", {
+        "randomness_options": RANDOMNESS_OPTIONS,
+        "randomness_default": RANDOMNESS_DEFAULT,
+    })
 
 def log_get_route_call(massif, address, level, randomness_str, departure_datetime, return_datetime, transit_priority, result):
     """Enregistre l'appel à get_route dans un fichier CSV."""
@@ -52,7 +57,9 @@ def get_route(request):
 
             # --- Conversion du paramètre randomness ---
             try:
+                print(f"Paramètre 'randomness' reçu: '{randomness_str}'")
                 randomness = float(randomness_str) / 2
+                print(f"Paramètre 'randomness' converti: {randomness}")
                 if not (0 <= randomness <= 1):
                     randomness = 0.25
             except ValueError:

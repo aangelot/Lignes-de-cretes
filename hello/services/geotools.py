@@ -50,6 +50,8 @@ def haversine(coord1, coord2):
 
 def find_nearest_node(G, coord):
     """Trouve le nœud du graphe le plus proche d'une coordonnée (lat, lon)."""
+    # Si le graphe a été filtré pour ne contenir que la plus grande composante,
+    # tous les nœuds sont connectés. Sinon, on prend le plus proche parmi tous.
     return min(G.nodes, key=lambda n: haversine(coord, (n[1], n[0])))
 
 

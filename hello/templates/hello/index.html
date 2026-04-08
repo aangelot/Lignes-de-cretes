@@ -133,10 +133,9 @@
         <p>
           Je souhaite une part d’aléatoire dans le tracé :
           <select id="randomness" name="randomness">
-            <option value="0.1">🧭 Itinéraire classique (les bases)</option>
-            <option value="0.3" selected>⚖️ Équilibre entre logique et surprise</option>
-            <option value="0.6">🌿 Exploration (hors sentiers connus)</option>
-            <option value="1">🔥 Aventure totale (imprévisible)</option>
+            {% for option in randomness_options %}
+              <option value="{{ option.value }}" {% if option.value == randomness_default %}selected{% endif %}>{{ option.label }}</option>
+            {% endfor %}
           </select>
         </p>
 
@@ -152,7 +151,6 @@
         <p style="text-align: center; margin-top: 1em;">
           <button type="submit" id="submit-btn">Trouver mon trek</button>
         </p>
-        <div id="progress-message" class="progress-message"></div>
       </form>
     </div>
   </div>
