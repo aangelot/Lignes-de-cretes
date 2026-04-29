@@ -38,3 +38,6 @@ RANDOMNESS_OPTIONS = [
     {"value": "1", "label": "🔥 Aventure totale (imprévisible)"},
 ]
 RANDOMNESS_DEFAULT = "0.2"
+
+# Algorithme de randonnée : pénalité pour dissuader la réutilisation d'arêtes
+REUSE_PENALTY_MULTIPLIER = 5.0

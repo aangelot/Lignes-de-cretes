@@ -277,6 +277,7 @@ def choose_return_stop(
         (1, "tranche1", 0.50 * max_return_dist, 0.75 * max_return_dist),
         (2, "tranche2", 0.25 * max_return_dist, 0.50 * max_return_dist),
         (3, "tranche3", 0.0, 0.25 * max_return_dist),
+        (4, "tranche4", 0.75 * max_return_dist, max_return_dist)
     ]
 
     all_candidates = []

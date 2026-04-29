@@ -8,7 +8,7 @@ import random
 from networkx import NetworkXNoPath, shortest_path
 from shapely.geometry import LineString, Point
 from .geotools import haversine, find_nearest_node, path_has_crossing
-from hello.constants import HIKE_DISTANCE_CONSUMPTION_THRESHOLD
+from hello.constants import HIKE_DISTANCE_CONSUMPTION_THRESHOLD, REUSE_PENALTY_MULTIPLIER
 from hello.management.commands.utils import slugify
 
 def best_hiking_crossing(
@@ -28,9 +28,13 @@ def best_hiking_crossing(
 
     # 1. Créer la ligne droite et un buffer latéral pour explorer le massif
     direct_line = LineString([start_coord, end_coord])
-    buffer_geom = direct_line.buffer(0.09, cap_style=2)  # Buffer de 10km de largeur, caps plats pour éviter l'extension longitudinale
+    
+    # Adapter la largeur du buffer selon la distance du trajet
+    buffer_width_km = 10 if max_distance_m >= 20000 else 5  # 5km pour < 20km, 10km sinon
+    buffer_width_degrees = buffer_width_km / 111.0  # Approximation : 1 degré ≈ 111 km
+    buffer_geom = direct_line.buffer(buffer_width_degrees, cap_style=2)  # Caps plats pour éviter l'extension longitudinale
 
-    print(f"📏 Ligne directe: {direct_line.length*111:.1f}km, buffer de 10km créé")
+    print(f"📏 Ligne directe: {direct_line.length*111:.1f}km, buffer de {buffer_width_km}km créé")
 
     # 2. Collecter tous les POI dans le buffer, triés par score décroissant
     all_pois = []
@@ -64,6 +68,27 @@ def best_hiking_crossing(
     selected_pois, final_path = _build_optimal_poi_path(
         start_coord, end_coord, all_pois, max_distance_m, G
     )
+
+    # Si aucun POI n'a pu être sélectionné, forcer un chemin simple avec le meilleur POI
+    if not selected_pois and all_pois:
+        print("⚠️ Aucun POI sélectionnable via l'algorithme, tentative chemin simple: départ->POI->arrivée")
+        best_poi = all_pois[0]
+        try:
+            start_node = find_nearest_node(G, start_coord[::-1])
+            poi_node = find_nearest_node(G, best_poi["coord"][::-1])
+            end_node = find_nearest_node(G, end_coord[::-1])
+            
+            # Construire le chemin simple: départ -> POI -> arrivée
+            path_to_poi = shortest_path(G, start_node, poi_node, weight="length")
+            path_from_poi = shortest_path(G, poi_node, end_node, weight="length")
+            final_path = path_to_poi + path_from_poi[1:]  # Éviter la duplication du POI node
+            
+            selected_pois = [best_poi]
+            print(f"✅ Chemin simple créé: départ -> {best_poi['id']} -> arrivée")
+        except Exception as e:
+            print(f"⚠️ Impossible de créer un chemin simple: {e}")
+            selected_pois = []
+            final_path = []
 
     if not selected_pois:
         print("⚠️ Aucun POI sélectionnable, trajet direct")
@@ -144,9 +169,6 @@ def _build_optimal_poi_path(start_coord, end_coord, all_pois, max_distance_m, G)
     considered = 0
     too_far = 0
     inaccessible = 0
-    
-    # Pénalité pour les arêtes réutilisées (multiplicateur de coût)
-    REUSE_PENALTY_MULTIPLIER = 5.0
 
     for poi in pois_by_projection:
         
@@ -315,7 +337,6 @@ def best_hiking_massif_tour(
         original_weights[(v, u)] = data.get("length", 1.0)
     
     used_edges = {}
-    REUSE_PENALTY_MULTIPLIER = 5.0
     
     try:
         while remaining_distance > 10000:  # 10km
@@ -419,6 +440,123 @@ def best_hiking_massif_tour(
         return [], 0
 
 
+def _get_path_coordinates(G, path_nodes):
+    """
+    Extrait les coordonnées (lon, lat) d'un chemin de nœuds du graphe.
+    Si les noeuds sont déjà des tuples (lon, lat), les retourne directement.
+    Sinon, cherche dans G.nodes[node]['pos'] ou ['lon','lat'].
+    Retourne une liste de tuples (lon, lat).
+    """
+    coords = []
+    for node in path_nodes:
+        # Si le noeud est déjà un tuple de coordonnées
+        if isinstance(node, tuple) and len(node) >= 2:
+            coords.append(node)
+        # Sinon, chercher dans les attributs du noeud
+        elif node in G.nodes:
+            node_data = G.nodes[node]
+            if "pos" in node_data:
+                coords.append(node_data["pos"])
+            elif "lon" in node_data and "lat" in node_data:
+                coords.append((node_data["lon"], node_data["lat"]))
+            else:
+                print(f"⚠️ Noeud {node} sans coordonnées (pas de 'pos' ni 'lon'/'lat')")
+        else:
+            print(f"⚠️ Noeud {node} pas dans le graphe")
+    return coords
+
+
+def _get_path_length(G, path_nodes):
+    """
+    Calcule la distance totale d'un chemin de nœuds.
+    """
+    if len(path_nodes) < 2:
+        return 0
+    return sum(G[u][v]["length"] for u, v in zip(path_nodes[:-1], path_nodes[1:]))
+
+
+def _penalize_path_edges(G, path_nodes, original_weights, penalty_multiplier):
+    """
+    Pénalise les arêtes du chemin dans le graphe pour dissuader leur réutilisation.
+    """
+    used_edges = {}
+    
+    for i in range(len(path_nodes) - 1):
+        u, v = path_nodes[i], path_nodes[i + 1]
+        edge_key = (u, v) if (u, v) in original_weights else (v, u)
+        
+        reuse_count = used_edges.get(edge_key, 0)
+        used_edges[edge_key] = reuse_count + 1
+        
+        new_weight = original_weights[edge_key] * (1 + penalty_multiplier * (reuse_count + 1))
+        
+        if G.has_edge(u, v):
+            G[u][v]["length"] = new_weight
+        if G.has_edge(v, u):
+            G[v][u]["length"] = new_weight
+
+
+def _filter_poi_data_by_distance(poi_data, path_coords, excluded_poi_ids=None, max_distance_m=200):
+    """
+    Retourne une copie de poi_data avec les POI trop proches du chemin supprimés.
+    Exclut aussi les POI dans excluded_poi_ids.
+    Utilise _is_poi_too_close_to_path pour vérifier la proximité.
+    """
+    if excluded_poi_ids is None:
+        excluded_poi_ids = set()
+    
+    filtered = {
+        "type": poi_data.get("type", "FeatureCollection"),
+        "features": []
+    }
+    
+    excluded_by_distance = []
+    excluded_by_id = []
+    kept_pois = []
+    
+    for feat in poi_data.get("features", []):
+        try:
+            poi_id = feat.get("properties", {}).get("titre")
+            
+            # Exclure les POI dans la liste d'exclusion
+            if poi_id in excluded_poi_ids:
+                excluded_by_id.append(poi_id)
+                continue
+            
+            coords = feat.get("geometry", {}).get("coordinates")
+            if not coords or len(coords) < 2:
+                filtered["features"].append(feat)
+                kept_pois.append((poi_id, "coord_invalide"))
+                continue
+            
+            # Utiliser _is_poi_too_close_to_path pour vérifier la proximité
+            poi_coord = tuple(coords)
+            if _is_poi_too_close_to_path(poi_coord, path_coords, max_distance_m):
+                excluded_by_distance.append((poi_id, "proche"))
+            else:
+                filtered["features"].append(feat)
+                # Calculer la distance min pour le log
+                min_dist = min(haversine(poi_coord, path_coord) for path_coord in path_coords) if path_coords else float('inf')
+                kept_pois.append((poi_id, f"{min_dist:.0f}m"))
+                
+        except Exception as e:
+            # En cas d'erreur, inclure le POI pour sécurité
+            print(f"⚠️ Erreur filtrage POI: {e}")
+            filtered["features"].append(feat)
+            kept_pois.append((feat.get("properties", {}).get("titre"), "erreur"))
+    
+    # Logs de débogage détaillés
+    print(f"   📊 Filtrage {len(poi_data.get('features', []))} POI:")
+    if excluded_by_distance:
+        print(f"   🚫 Exclus par distance (< {max_distance_m}m): {len(excluded_by_distance)} POI")
+    if excluded_by_id:
+        print(f"   🚫 Exclus par ID: {excluded_by_id}")
+    if kept_pois:
+        print(f"   ✅ Gardés: {[(p[0], p[1]) for p in kept_pois[:10]]}")  # Top 10 gardés
+    
+    return filtered
+
+
 def best_hiking_loop(
     start_coord,
     max_distance_m,
@@ -430,14 +568,17 @@ def best_hiking_loop(
     """
     Fonction pour les randonnées en boucle (départ = arrivée).
     Logique : créer un point fictif à distance_max/2 en direction du centre du massif,
-    puis calculer un trajet aller avec POI et un trajet retour avec POI différents.
+    puis calculer un trajet aller avec POI et un trajet retour avec POI différents,
+    en pénalisant les arêtes du trajet aller et en excluant les POI proches de l'aller.
     
     Étapes :
     1. Obtenir le centre du massif
     2. Créer un point fictif à distance_max/2 en direction du centre
     3. Calculer trajet aller vers le point fictif avec POI
-    4. Calculer trajet retour du point fictif vers le départ avec POI différents
-    5. Retourner le chemin complet (aller + retour)
+    4. Pénaliser les arêtes du trajet aller dans le graphe
+    5. Filtrer les POI trop proches du trajet aller (< 200m)
+    6. Calculer trajet retour du point fictif vers le départ avec POI filtrés
+    7. Retourner le chemin complet (aller + retour)
     """
     
     print(f"🔁 Recherche chemin rando en boucle: départ={start_coord}, max_distance={max_distance_m/1000:.1f}km")
@@ -446,8 +587,11 @@ def best_hiking_loop(
     massif_center = _get_massif_center(massif_name)
     print(f"📍 Centre du massif '{massif_name}' estimé: {massif_center}")
     
-    # 2. Créer un point fictif à distance_max/2 en direction du centre
-    half_distance_m = max_distance_m / 2
+    # Mémoriser la distance max originale
+    original_max_distance_m = max_distance_m
+    
+    # 2. Créer un point fictif à distance_max/3 en direction du centre
+    target_distance_m = max_distance_m / 3 
     
     # Calculer l'angle et la distance vers le centre
     start_lon, start_lat = start_coord
@@ -458,20 +602,29 @@ def best_hiking_loop(
     angle_to_center = math.atan2(dy, dx)
     
     # Convertir distance en degrés (approximation: 1 degré ≈ 111 km)
-    distance_in_degrees = half_distance_m / (111000)
+    distance_in_degrees = target_distance_m / (111000)
     
     fictitious_lon = start_lon + distance_in_degrees * math.cos(angle_to_center)
     fictitious_lat = start_lat + distance_in_degrees * math.sin(angle_to_center)
     fictitious_point = (fictitious_lon, fictitious_lat)
     
-    print(f"🎯 Point fictif créé à {haversine(start_coord, fictitious_point):.0f}m (distance max/2)")
+    print(f"🎯 Point fictif créé à {haversine(start_coord, fictitious_point):.0f}m")
+    
+    # Sauvegarder les poids originaux du graphe pour restauration ultérieure
+    original_weights = {}
+    for u, v, data in G.edges(data=True):
+        original_weights[(u, v)] = data.get("length", 1.0)
+        original_weights[(v, u)] = data.get("length", 1.0)
     
     # 3. Calculer trajet aller du départ vers le point fictif
+    # Utiliser une portion de la distance max pour l'aller
+    max_distance_outbound = original_max_distance_m * 0.4  # 40% pour l'aller
+    
     try:
         path_go, dist_go = best_hiking_crossing(
             start_coord=start_coord,
             end_coord=fictitious_point,
-            max_distance_m=max_distance_m,  # On utilise la distance max complète pour la flexibilité
+            max_distance_m=max_distance_outbound,
             G=G,
             poi_data=poi_data,
             randomness=randomness,
@@ -484,28 +637,61 @@ def best_hiking_loop(
         print("❌ Aucun chemin aller trouvé pour la boucle")
         return [], 0
     
-    # 4. Calculer trajet retour du point fictif vers le départ
-    # Utiliser la distance restante (max_distance - distance_aller)
-    remaining_distance = max_distance_m - dist_go
+    # 4. Extraire les coordonnées du trajet aller pour filtrer les POI du retour
+    path_go_coords = _get_path_coordinates(G, path_go)
+    print(f"📍 Chemin aller: {len(path_go)} noeuds, {len(path_go_coords)} coordonnées extraites")
+    
+    # 5. Pénaliser les arêtes du trajet aller dans le graphe
+    _penalize_path_edges(G, path_go, original_weights, REUSE_PENALTY_MULTIPLIER)
+    print(f"🔒 {len(path_go)-1} arêtes du trajet aller pénalisées pour dissuader le retour direct")
+    
+    # 6. Filtrer les POI trop proches du trajet aller (< 200m)
+    # Pas d'exclusion spécifique du POI sélectionné, il doit être filtré automatiquement
+    original_poi_count = len(poi_data.get("features", []))
+    filtered_poi_data = _filter_poi_data_by_distance(poi_data, path_go_coords, excluded_poi_ids=None, max_distance_m=200)
+    filtered_poi_count = len(filtered_poi_data.get("features", []))
+    pois_removed = original_poi_count - filtered_poi_count
+    print(f"📊 Filtrage POI retour: {original_poi_count} → {filtered_poi_count} ({pois_removed} supprimés)")
+    
+    # 7. Calculer trajet retour du point fictif vers le départ
+    # Utiliser une portion de la distance max pour le retour
+    max_distance_return = original_max_distance_m * 0.6  # 60% pour le retour
+    
+    # Log des POI disponibles pour le retour
+    retour_poi_list = [f["properties"].get("titre") for f in filtered_poi_data.get("features", [])[:5]]
+    print(f"🔍 POI disponibles pour retour (top 5): {retour_poi_list}")
     
     try:
         path_return, dist_return = best_hiking_crossing(
             start_coord=fictitious_point,
             end_coord=start_coord,
-            max_distance_m=remaining_distance,
+            max_distance_m=max_distance_return,
             G=G,
-            poi_data=poi_data,
+            poi_data=filtered_poi_data,  # Utiliser les POI filtrés
             randomness=randomness,
         )
     except Exception as e:
         print(f"❌ Échec trajet retour en boucle: {e}")
+        # Restaurer les poids avant de retourner
+        for u, v, data in G.edges(data=True):
+            if (u, v) in original_weights:
+                G[u][v]["length"] = original_weights[(u, v)]
         return [], 0
     
     if not path_return:
         print("❌ Aucun chemin retour trouvé pour la boucle")
+        # Restaurer les poids avant de retourner
+        for u, v, data in G.edges(data=True):
+            if (u, v) in original_weights:
+                G[u][v]["length"] = original_weights[(u, v)]
         return [], 0
     
-    # 5. Combiner les deux trajets
+    # Restaurer les poids originaux du graphe
+    for u, v, data in G.edges(data=True):
+        if (u, v) in original_weights:
+            G[u][v]["length"] = original_weights[(u, v)]
+    
+    # 8. Combiner les deux trajets
     # Path est une liste de nœuds du graphe
     # On concatène en omettant le premier nœud du retour (qui est le dernier du aller)
     complete_path = path_go + path_return[1:]

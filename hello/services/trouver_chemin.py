@@ -170,8 +170,13 @@ def compute_best_route(
 
             print(f"Distance max ajustée avec retour connu : {max_distance_m/1000:.1f} km")
 
-            # Vérifier si c'est une boucle (arrêt retour = arrêt aller)
-            is_loop = candidate.get("stop_id") == departure_stop_id
+            # Vérifier si c'est une boucle (arrêt retour = arrêt aller ou < 5km)
+            is_same_stop = candidate.get("stop_id") == departure_stop_id
+            distance_to_departure = haversine(
+                departure_stop_info["node"],
+                candidate["stop_info"]["node"]
+            )
+            is_loop = is_same_stop or distance_to_departure < 5000  # 5km en mètres
             
             if is_loop:
                 print(f"🔁 Cas boucle détecté : arrêt retour = arrêt aller, utilisation du mode boucle")
