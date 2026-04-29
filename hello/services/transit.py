@@ -481,7 +481,7 @@ def get_transit_route_for_stop(return_stop_info, return_time, address, departure
     return resp, duration_sec
 
 
-def compute_return_transit(return_candidates, return_time, address, stops_data=None, departure_time=None):
+def compute_return_transit(return_candidates, return_time, address, stops_data=None, departure_time=None, status_callback=None):
     """
     Teste le classement des arrêts retour et renvoie le premier itinéraire TC valide.
 
@@ -491,6 +491,7 @@ def compute_return_transit(return_candidates, return_time, address, stops_data=N
         address: Adresse de départ
         stops_data: Données des arrêts (optionnel)
         departure_time: Datetime du début du trek (optionnel, pour validation)
+        status_callback: Fonction d'état appelée avec un message et un progrès facultatif
     
     Returns : (candidate, transit_response, duration_seconds)
     """
@@ -498,17 +499,27 @@ def compute_return_transit(return_candidates, return_time, address, stops_data=N
     if not return_candidates:
         raise RuntimeError("Aucun candidat d'arrêt retour fourni")
 
+    def update_status(message, progress=None):
+        if status_callback:
+            try:
+                status_callback(message, progress)
+            except Exception:
+                pass
+
     last_exception = None
     for candidate in return_candidates:
         stop_info = candidate.get("stop_info")
         stop_id = candidate.get("stop_id")
+        update_status(f"Tentative du retour TC pour {stop_id}")
         try:
             resp, duration_sec = get_transit_route_for_stop(stop_info, return_time, address, departure_time=departure_time)
             # Réussite : réinitialiser le failure_count
             stop_info["failure_count"] = 0
+            update_status(f"Retour TC valide trouvé pour {stop_id}")
             return candidate, resp, duration_sec
         except Exception as exc:
             last_exception = exc
+            update_status(f"Échec du retour TC pour {stop_id} : {exc}")
             # Échec : incrémenter le failure_count
             stop_info["failure_count"] = stop_info.get("failure_count", 0) + 1
             print(f"⚠️ Compteur échec pour {stop_id} = {stop_info['failure_count']}")

@@ -117,6 +117,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const retInput = document.getElementById('return_datetime');
     const submitBtn = document.getElementById('submit-btn');
     const errorDiv = document.getElementById('date-error');
+    const routeStatusContainer = document.getElementById('route-status-container');
+
+    function setRouteStatus(message) {
+        if (!routeStatusContainer) return;
+        const safeMessage = message ? String(message) : '';
+        routeStatusContainer.innerHTML = safeMessage
+            ? `<span style="opacity:0.8;">${safeMessage}</span>`
+            : '';
+    }
 
     function validateDates() {
         const departure = new Date(depInput.value);
@@ -353,6 +362,146 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     document.querySelectorAll('.floating-modal').forEach(addToggleExclusive);
 
+    async function renderRoute(data) {
+        if (!data.features || data.features.length === 0) {
+            throw new Error("Aucun itinéraire trouvé !");
+        }
+
+        lastGeneratedFilename = data.generated_filename || null;
+
+        currentLayer = L.geoJSON(data, { style: { color: '#ef8409', weight: 4, opacity: 0.9 } }).addTo(map);
+
+        currentLayer.eachLayer(layer => {
+            const coords = layer.getLatLngs();
+            const startIcon = L.icon({
+                iconUrl: '/static/hello/path_to_start_image.png',
+                iconSize: [50, 50],
+                iconAnchor: [25, 25],
+                popupAnchor: [0, -50]
+            });
+
+            const endIcon = L.icon({
+                iconUrl: '/static/hello/path_to_end_image.png',
+                iconSize: [50, 50],
+                iconAnchor: [25, 25],
+                popupAnchor: [0, -50]
+            });
+
+            startMarker = L.marker(coords[0], { icon: startIcon }).addTo(map).bindPopup("Départ");
+            endMarker = L.marker(coords[coords.length-1], { icon: endIcon }).addTo(map).bindPopup("Arrivée");
+
+            if (L.PolylineDecorator) {
+                arrowDecorator = L.polylineDecorator(layer, {
+                    patterns: [{ offset: 25, repeat: 250, symbol: L.Symbol.arrowHead({ pixelSize: 12, polygon: true, pathOptions: { color: '#ef8409', fillOpacity: 1, weight: 2 }})}]
+                }).addTo(map);
+            }
+        });
+
+        map.fitBounds(currentLayer.getBounds());
+
+        const formModal = document.getElementById('form-modal');
+        if (formModal) {
+            formModal.classList.add('collapsed');
+        }
+
+        const props = data.features[0].properties;
+
+        try {
+            if (props && Array.isArray(props.near_pois) && props.near_pois.length > 0) {
+                if (poiLayer) { map.removeLayer(poiLayer); poiLayer = null; }
+                poiLayer = L.geoJSON(props.near_pois, {
+                    pointToLayer: function(feature, latlng) {
+                        const title = (feature.properties && (feature.properties.titre || feature.properties.title || feature.properties.name)) || 'POI';
+                        const type = feature.properties && feature.properties.type;
+                        const elevation = feature.properties && feature.properties.elevation;
+                        const iconUrl = type === 'summit' ? '/static/hello/summit.png' : '/static/hello/POI.png';
+                        const icon = L.icon({
+                            iconUrl: iconUrl,
+                            iconSize: [32, 32],
+                            iconAnchor: [16, 16],
+                            popupAnchor: [0, -16]
+                        });
+                        const marker = L.marker(latlng, { icon: icon });
+                        marker.bindPopup(type === 'summit' ? `${title} (${elevation} m)` : title);
+                        return marker;
+                    }
+                }).addTo(map);
+            }
+        } catch (err) {
+            console.warn('Erreur affichage POI :', err);
+        }
+
+        const summaryModal = document.getElementById('modal-summary');
+        summaryModal.innerHTML = `
+            <div class="modal-header">
+                <h3>🗺️ Distance et dénivelé</h3>
+                <button class="toggle-btn">▲</button>
+            </div>
+            <div class="modal-body">
+                <div id="elevation-div"></div>
+                <div id="elevation-legend" class="custom-legend"></div>
+            </div>
+        `;
+        initElevationInSummary();
+        summaryModal.classList.remove('collapsed');
+        summaryModal.querySelector('.toggle-btn').textContent = '▲';
+
+        ['go', 'back'].forEach(type => {
+            const modal = document.getElementById('modal-' + type);
+            modal.innerHTML = `
+                <div class="modal-header">
+                    <h3>${type === 'go' ? '➡️🚊 Aller' : '⬅️🚊 Retour'}</h3>
+                    <button class="toggle-btn">▼</button>
+                </div>
+                <div class="modal-body"></div>
+            `;
+
+            if (props['transit_' + type]) {
+                afficherTransit(props['transit_' + type], modal.querySelector('.modal-body'));
+            }
+
+            if (type === 'back' && props.return_error_message) {
+                const errorHtml = `
+                    <div class="error-message" style="color:#d32f2f; margin-top:1em; border:1px solid rgba(211,47,47,0.25); padding:0.75em; background:rgba(211,47,47,0.08); border-radius:6px;">
+                        <strong>Retour non trouvé :</strong><br>${props.return_error_message}
+                    </div>
+                `;
+                const body = modal.querySelector('.modal-body');
+                if (body) {
+                    body.innerHTML += errorHtml;
+                }
+            }
+
+            modal.classList.add('collapsed');
+            modal.querySelector('.toggle-btn').textContent = '▼';
+        });
+
+        ['go','back','summary'].forEach(type => {
+            const modal = document.getElementById('modal-' + type);
+            addToggleExclusive(modal);
+        });
+
+        const container = document.getElementById('modals-container');
+        const oldBtn = document.getElementById('gpx-download-btn');
+        if (oldBtn) oldBtn.remove();
+
+        const gpxBtn = document.createElement('button');
+        gpxBtn.id = 'gpx-download-btn';
+        gpxBtn.textContent = '📥 Télécharger le tracé GPX';
+        gpxBtn.className = 'highlight';
+        gpxBtn.style.marginTop = '1em';
+
+        gpxBtn.addEventListener('click', () => {
+            if (typeof gpxWarningModal !== 'undefined' && gpxWarningModal) {
+                gpxWarningModal.style.display = 'flex';
+            } else {
+                triggerGPXDownload();
+            }
+        });
+
+        container.appendChild(gpxBtn);
+    }
+
 
     // === Soumission formulaire ===
     document.getElementById('trek-form').addEventListener('submit', async e => {
@@ -362,6 +511,7 @@ document.addEventListener('DOMContentLoaded', () => {
         submitBtn.disabled = true;
         const originalBtnText = submitBtn.textContent;
         submitBtn.textContent = 'Calcul en cours…';
+        setRouteStatus('Démarrage du calcul du tracé...');
 
         clearMapOverlays();
 
@@ -383,177 +533,75 @@ document.addEventListener('DOMContentLoaded', () => {
         params.append('randomness', String(randomness));
         params.append('departure_datetime', departure_datetime);
         params.append('return_datetime', return_datetime);
-
         params.append('address', address);
         params.append('transit_priority', transit_priority);
 
-        const url = `/get_route/?${params.toString()}`;
-
+        const startUrl = `/start_route/?${params.toString()}`;
+        let requestId = null;
         try {
-            const response = await fetch(url);
-            if (!response.ok) throw new Error('Erreur lors de la récupération du tracé');
-            const data = await response.json();
-
-            if (!data.features || data.features.length === 0) {
-                alert("Aucun itinéraire trouvé !");
-                return;
+            const startResponse = await fetch(startUrl);
+            if (!startResponse.ok) {
+                throw new Error('Impossible de lancer le calcul du tracé.');
             }
-
-            // Récupérer le nom de fichier généré côté serveur (si présent)
-            lastGeneratedFilename = data.generated_filename || null;
-
-            // GeoJSON
-            currentLayer = L.geoJSON(data, { style: { color: '#ef8409', weight: 4, opacity: 0.9 } }).addTo(map);
-
-            currentLayer.eachLayer(layer => {
-                const coords = layer.getLatLngs();
-                // Définir les icônes personnalisées
-                const startIcon = L.icon({
-                    iconUrl: '/static/hello/path_to_start_image.png', // chemin relatif à la racine du serveur
-                    iconSize: [50, 50],
-                    iconAnchor: [25, 25],
-                    popupAnchor: [0, -50]
-                });
-
-                const endIcon = L.icon({
-                    iconUrl: '/static/hello/path_to_end_image.png',
-                    iconSize: [50, 50],
-                    iconAnchor: [25, 25],
-                    popupAnchor: [0, -50]
-                });
-
-                // Ajouter les marqueurs avec les icônes personnalisées
-                startMarker = L.marker(coords[0], { icon: startIcon }).addTo(map).bindPopup("Départ");
-                endMarker = L.marker(coords[coords.length-1], { icon: endIcon }).addTo(map).bindPopup("Arrivée");
-
-                if (L.PolylineDecorator) {
-                    arrowDecorator = L.polylineDecorator(layer, {
-                        patterns: [{ offset: 25, repeat: 250, symbol: L.Symbol.arrowHead({ pixelSize: 12, polygon: true, pathOptions: { color: '#ef8409', fillOpacity: 1, weight: 2 }})}]
-                    }).addTo(map);
-                }
-            });
-
-            map.fitBounds(currentLayer.getBounds());
-
-
-            // Masquer formulaire
-            const formModal = document.getElementById('form-modal');
-            formModal.classList.add('collapsed');
-
-            const props = data.features[0].properties;
-
-            // === Afficher les POI proches si présents ===
-            try {
-                if (props && Array.isArray(props.near_pois) && props.near_pois.length > 0) {
-                    if (poiLayer) { map.removeLayer(poiLayer); poiLayer = null; }
-                    poiLayer = L.geoJSON(props.near_pois, {
-                        pointToLayer: function(feature, latlng) {
-                            const title = (feature.properties && (feature.properties.titre || feature.properties.title || feature.properties.name)) || 'POI';
-                            const type = feature.properties && feature.properties.type;
-                            const elevation = feature.properties && feature.properties.elevation;
-                            const iconUrl = type === 'summit' ? '/static/hello/summit.png' : '/static/hello/POI.png';
-                            const icon = L.icon({
-                                iconUrl: iconUrl,
-                                iconSize: [32, 32],
-                                iconAnchor: [16, 16],
-                                popupAnchor: [0, -16]
-                            });
-                            const marker = L.marker(latlng, { icon: icon });
-                            marker.bindPopup(type === 'summit' ? `${title} (${elevation} m)` : title);
-                            return marker;
-                        }
-                    }).addTo(map);
-                }
-            } catch (err) {
-                console.warn('Erreur affichage POI :', err);
+            const payload = await startResponse.json();
+            requestId = payload.request_id;
+            if (!requestId) {
+                throw new Error('Réponse invalide du serveur.');
             }
-
-            // === Modale Résumé ===
-            const summaryModal = document.getElementById('modal-summary');
-            summaryModal.innerHTML = `
-                <div class="modal-header">
-                    <h3>🗺️ Distance et dénivelé</h3>
-                    <button class="toggle-btn">▲</button>
-                </div>
-                <div class="modal-body">
-                    <div id="elevation-div"></div>
-                    <div id="elevation-legend" class="custom-legend"></div>
-                </div>
-            `;
-            initElevationInSummary();
-
-            // État initial : Résumé déplié
-            summaryModal.classList.remove('collapsed');
-            summaryModal.querySelector('.toggle-btn').textContent = '▲';
-
-            // === Modales Aller / Retour ===
-            ['go', 'back'].forEach(type => {
-                const modal = document.getElementById('modal-' + type);
-                modal.innerHTML = `
-                    <div class="modal-header">
-                        <h3>${type === 'go' ? '➡️🚊 Aller' : '⬅️🚊 Retour'}</h3>
-                        <button class="toggle-btn">▼</button>
-                    </div>
-                    <div class="modal-body"></div>
-                `;
-
-                if (props['transit_' + type]) {
-                    afficherTransit(props['transit_' + type], modal.querySelector('.modal-body'));
-                }
-
-                if (type === 'back' && props.return_error_message) {
-                    const errorHtml = `
-                        <div class="error-message" style="color:#d32f2f; margin-top:1em; border:1px solid rgba(211,47,47,0.25); padding:0.75em; background:rgba(211,47,47,0.08); border-radius:6px;">
-                            <strong>Retour non trouvé :</strong><br>${props.return_error_message}
-                        </div>
-                    `;
-                    const body = modal.querySelector('.modal-body');
-                    if (body) {
-                        body.innerHTML += errorHtml;
-                    }
-                }
-
-                // État initial : Aller et Retour repliés
-                modal.classList.add('collapsed');
-                modal.querySelector('.toggle-btn').textContent = '▼';
-            });
-
-
-            // === Attacher toggles exclusifs à toutes les modales ===
-            ['go','back','summary'].forEach(type => {
-                const modal = document.getElementById('modal-' + type);
-                addToggleExclusive(modal);
-            });
-
-            // === Ajouter bouton GPX ===
-            const container = document.getElementById('modals-container');
-            const oldBtn = document.getElementById('gpx-download-btn');
-            if (oldBtn) oldBtn.remove();
-
-            const gpxBtn = document.createElement('button');
-            gpxBtn.id = 'gpx-download-btn'; // identifiant pour pouvoir le retrouver
-            gpxBtn.textContent = '📥 Télécharger le tracé GPX';
-            gpxBtn.className = 'highlight';
-            gpxBtn.style.marginTop = '1em';
-
-            gpxBtn.addEventListener('click', () => {
-                if (typeof gpxWarningModal !== 'undefined' && gpxWarningModal) {
-                    gpxWarningModal.style.display = 'flex';
-                } else {
-                    triggerGPXDownload();
-                }
-            });
-
-            container.appendChild(gpxBtn);
-
-
         } catch (err) {
-            alert(err.message);
-            console.error(err);
-        } finally {
             submitBtn.disabled = false;
             submitBtn.textContent = originalBtnText;
+            setRouteStatus('');
+            alert(err.message);
+            console.error(err);
+            return;
         }
+
+        let pollTimer = null;
+        const stopPolling = () => {
+            if (pollTimer) {
+                clearInterval(pollTimer);
+                pollTimer = null;
+            }
+        };
+
+        const pollStatus = async () => {
+            try {
+                const statusResp = await fetch(`/route_status/?request_id=${encodeURIComponent(requestId)}`);
+                if (!statusResp.ok) {
+                    const errData = await statusResp.json().catch(() => null);
+                    throw new Error(errData?.error || 'Erreur de suivi du calcul.');
+                }
+
+                const statusData = await statusResp.json();
+                setRouteStatus(statusData.status || 'Calcul en cours…');
+
+                if (statusData.finished) {
+                    stopPolling();
+                    if (statusData.error) {
+                        throw new Error(statusData.error);
+                    }
+                    if (!statusData.result) {
+                        throw new Error('Le serveur n\'a pas renvoyé de résultat.');
+                    }
+
+                    await renderRoute(statusData.result);
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalBtnText;
+                    setRouteStatus('Tracé calculé !');
+                }
+            } catch (err) {
+                stopPolling();
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalBtnText;
+                setRouteStatus('');
+                alert(err.message);
+                console.error(err);
+            }
+        };
+
+        await pollStatus();
+        pollTimer = setInterval(pollStatus, 2000);
     });
 
 });

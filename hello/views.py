@@ -2,10 +2,14 @@ import traceback
 import os
 import json
 import csv
+import uuid
+import threading
 from datetime import datetime
+from django.conf import settings
 from django.shortcuts import render
 from django.http import JsonResponse
 from hello.services.trouver_chemin import compute_best_route
+from hello.services.progress import initialize_route_status, update_route_status, get_route_status
 from hello.constants import RANDOMNESS_OPTIONS, RANDOMNESS_DEFAULT
 
 
@@ -101,6 +105,73 @@ def get_route(request):
             return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "Méthode non autorisée"}, status=405)
+
+
+def start_route(request):
+    if request.method != "GET":
+        return JsonResponse({"error": "Méthode non autorisée"}, status=405)
+
+    request_id = uuid.uuid4().hex
+    initialize_route_status(request_id, "Démarrage du calcul du tracé...", 0)
+
+    massif = request.GET.get("massif", "Chartreuse")
+    address = request.GET.get("address", "")
+    level = request.GET.get("level", "debutant")
+    randomness_str = request.GET.get("randomness", "0.3")
+    departure_datetime = request.GET.get("departure_datetime")
+    return_datetime = request.GET.get("return_datetime")
+    transit_priority = request.GET.get("transit_priority", "")
+
+    try:
+        randomness = float(randomness_str) / 2
+        if not (0 <= randomness <= 1):
+            randomness = 0.25
+    except ValueError:
+        randomness = 0.25
+
+    def status_callback(message, progress=None):
+        update_route_status(request_id, message=message, progress=progress)
+
+    def worker():
+        try:
+            geojson_data = compute_best_route(
+                randomness=randomness,
+                massif=massif,
+                departure_time=departure_datetime,
+                return_time=return_datetime,
+                level=level,
+                address=address,
+                transit_priority=transit_priority,
+                status_callback=status_callback,
+            )
+            log_get_route_call(massif, address, level, randomness_str, departure_datetime, return_datetime, transit_priority, "Succès")
+            update_route_status(request_id, message="Calcul terminé", progress=100, finished=True, result=geojson_data)
+        except Exception as exc:
+            error_message = str(exc)
+            print("❌ ERREUR SERVEUR INTERNE (background):")
+            print(traceback.format_exc())
+            log_get_route_call(massif, address, level, randomness_str, departure_datetime, return_datetime, transit_priority, error_message)
+            update_route_status(request_id, message=f"Erreur : {error_message}", progress=100, finished=True, error=error_message)
+
+    thread = threading.Thread(target=worker, daemon=True)
+    thread.start()
+
+    return JsonResponse({"request_id": request_id})
+
+
+def route_status(request):
+    if request.method != "GET":
+        return JsonResponse({"error": "Méthode non autorisée"}, status=405)
+
+    request_id = request.GET.get("request_id")
+    if not request_id:
+        return JsonResponse({"error": "request_id requis"}, status=400)
+
+    status_data = get_route_status(request_id)
+    if status_data is None:
+        return JsonResponse({"error": "Demande introuvable"}, status=404)
+
+    return JsonResponse(status_data)
 
 
 def gares_list(request):
