@@ -510,16 +510,16 @@ def compute_return_transit(return_candidates, return_time, address, stops_data=N
     for candidate in return_candidates:
         stop_info = candidate.get("stop_info")
         stop_id = candidate.get("stop_id")
-        update_status(f"Tentative du retour TC pour {stop_id}")
+        update_status(f"Tentative d'itinéraire de retour", 60)
         try:
             resp, duration_sec = get_transit_route_for_stop(stop_info, return_time, address, departure_time=departure_time)
             # Réussite : réinitialiser le failure_count
             stop_info["failure_count"] = 0
-            update_status(f"Retour TC valide trouvé pour {stop_id}")
+            update_status(f"Retour transport en commun valide trouvé")
             return candidate, resp, duration_sec
         except Exception as exc:
             last_exception = exc
-            update_status(f"Échec du retour TC pour {stop_id} : {exc}")
+            update_status(f"Échec du retour pour un arrêt, test du suivant...", 60)
             # Échec : incrémenter le failure_count
             stop_info["failure_count"] = stop_info.get("failure_count", 0) + 1
             print(f"⚠️ Compteur échec pour {stop_id} = {stop_info['failure_count']}")
