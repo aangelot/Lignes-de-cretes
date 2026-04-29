@@ -1,0 +1,271 @@
+/* =========================
+   MOBILE CSS
+========================= */
+
+@media (max-width: 768px) {
+
+  /* ===== GLOBAL ===== */
+  body {
+    font-size: 15px;
+  }
+
+  /* ===== HIDE LEAFLET CONTROLS ON MOBILE ===== */
+    .leaflet-control-zoom,
+    .leaflet-control-layers {
+    display: none !important;
+    }
+
+  /* ===== HEADER ===== */
+  header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: 0.4rem 0.8rem;
+    background: #19191e;
+    z-index: 1001;
+  }
+
+  .logo-container img {
+    height: 28px;
+  }
+
+  h2 {
+    font-size: 1.1rem;
+    margin: 0;
+  }
+
+  .nav-buttons {
+    gap: 0.3rem;
+  }
+
+  .nav-buttons button {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8rem;
+  }
+
+  .nav-buttons button:not(.highlight) {
+    display: none;
+  }
+
+  .desktop-nav {
+    display: none;
+  }
+
+  /* ===== BURGER ===== */
+  .burger-btn {
+    font-size: 1.4rem;
+    background: none;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+  }
+
+  .mobile-menu {
+    display: none;
+    position: absolute;
+    top: 50px;
+    right: 10px;
+    background: #19191e;
+    border: 1px solid #333;
+    border-radius: 8px;
+    flex-direction: column;
+    z-index: 2000;
+  }
+
+  .mobile-menu button {
+    width: 100%;
+    text-align: left;
+    padding: 0.6rem 1rem;
+    background: none;
+    color: #fff;
+  }
+
+  /* ===== MAP ===== */
+  #map {
+    top: 0;
+  }
+
+  /* ===== MODALS CONTAINER ===== */
+  #modals-container {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: auto;
+    padding: 0;
+    gap: 0;
+    z-index: 1002;
+    min-height: 50px;
+  }
+
+  /* ===== FLOATING MODALS ===== */
+    #gpxWarningModal {
+        z-index: 1003 !important;
+        }
+
+  .floating-modal {
+    width: 100%;
+    max-height: 70vh;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+
+    display: flex;
+    flex-direction: column;
+  }
+
+  .floating-modal::before {
+    content: "";
+    width: 40px;
+    height: 4px;
+    background: rgba(255,255,255,0.3);
+    border-radius: 2px;
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  /* HEADER MODAL */
+  .modal-header {
+    padding: 0.8rem 1rem 0.6rem 1rem;
+    position: relative;
+    z-index: 2;
+  }
+
+  .floating-modal .modal-header h3 {
+    font-size: 1rem;
+  }
+
+  /* BODY */
+  .modal-body {
+    padding: 0.8rem;
+    max-height: 60vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* COLLAPSED STATE */
+.floating-modal.collapsed {
+  max-height: 72px;   /* juste une limite */
+  overflow: hidden;
+}
+
+/* on garde le header visible et stable */
+.floating-modal.collapsed .modal-header {
+  position: relative;
+  z-index: 2;
+}
+
+
+/* on cache le contenu */
+.floating-modal.collapsed .modal-body {
+  display: none;
+}
+
+
+  /* ===== FORM FIX ===== */
+  #form-modal {
+    max-height: 80vh;
+  }
+
+  #form-modal .modal-body {
+    max-height: calc(80vh - 60px);
+  }
+
+  /* ===== FORM ===== */
+  .text-form p {
+    margin: 15px 0;
+  }
+
+  .text-form input,
+  .text-form select {
+    font-size: 0.9rem;
+  }
+
+  .text-form button {
+    width: 100%;
+    padding: 0.7em;
+  }
+
+  /* ===== STATUS MESSAGE ===== */
+  #route-status-container {
+    margin-top: 10px;
+    margin-bottom: 10px;
+    padding: 0.5rem 0;
+    text-align: center;
+    font-size: 0.9rem;
+    color: #ccc;
+  }
+
+  /* ===== MULTI MODALS ===== */
+  #modal-summary,
+  #modal-go,
+  #modal-back {
+    margin-top: -10px;
+  }
+
+  /* ===== GPX BUTTON ===== */
+  .modal-body .gpx-btn,
+  #gpx-download-btn {
+    width: 100%;
+    margin-top: 1rem;
+    padding: 0.8rem;
+    font-size: 0.95rem;
+    border-radius: 8px;
+    text-align: center;
+  }
+
+  /* ===== INFO MODALS ===== */
+  .modal-content {
+    width: 90%;
+    max-width: none;
+    padding: 1.5rem;
+  }
+
+  /* ===== LEAFLET CONTROLS ===== */
+  .leaflet-control-zoom {
+    transform: scale(0.9);
+    right: 10px !important;
+    bottom: 80px !important;
+  }
+
+  .leaflet-control-layers {
+    transform: scale(0.9);
+    right: 10px !important;
+    bottom: 130px !important;
+  }
+
+  /* ===== ELEVATION ===== */
+  .custom-elevation-theme {
+    --ele-height: 140px;
+  }
+
+  /* ===== TRANSIT ===== */
+  .gmaps-btn {
+    width: 100%;
+    margin-top: 0.8rem;
+  }
+
+  /* ===== TYPO ===== */
+  p {
+    font-size: 0.9rem;
+  }
+
+  /* ===== MOBILE: INVERSION DES FLÈCHES ===== */
+
+    /* état fermé */
+    .floating-modal.collapsed .toggle-btn {
+    transform: rotate(180deg);
+    }
+
+    /* état ouvert */
+    .floating-modal:not(.collapsed) .toggle-btn {
+    transform: rotate(180deg);
+    }
+
+    /* animation propre */
+    .toggle-btn {
+    transition: transform 0.2s ease;
+    }
+}
+

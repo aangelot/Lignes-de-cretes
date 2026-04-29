@@ -499,8 +499,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        container.appendChild(gpxBtn);
-    }
+        document
+        .querySelector('#modal-summary .modal-body')
+        .appendChild(gpxBtn);;
+            }
 
 
     // === Soumission formulaire ===
