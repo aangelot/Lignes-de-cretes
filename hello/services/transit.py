@@ -519,7 +519,7 @@ def compute_return_transit(return_candidates, return_time, address, stops_data=N
             return candidate, resp, duration_sec
         except Exception as exc:
             last_exception = exc
-            update_status(f"Échec du retour pour un arrêt, test du suivant...", 60)
+            update_status(f"Tests de plusieurs arrêts pour le trajet retour...", 60)
             # Échec : incrémenter le failure_count
             stop_info["failure_count"] = stop_info.get("failure_count", 0) + 1
             print(f"⚠️ Compteur échec pour {stop_id} = {stop_info['failure_count']}")

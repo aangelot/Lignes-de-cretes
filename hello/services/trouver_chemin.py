@@ -230,7 +230,7 @@ def compute_best_route(
             break
 
         if selected_candidate is None:
-            return_error_message = return_error_message or "Aucun itinéraire retour TC valide trouvé pour crossing"
+            return_error_message = return_error_message or "Aucun itinéraire retour en transport commun valide trouvé"
             print(f"⚠️ {return_error_message}")
 
             if return_candidates:
