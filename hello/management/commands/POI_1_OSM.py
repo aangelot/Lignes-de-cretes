@@ -25,7 +25,15 @@ def fetch_osm_peaks(massif: str):
         raise ValueError(f"❌ Aucune entrée trouvée pour le PNR '{massif}' dans massifs_coord_max.geojson")
 
     # Requête Overpass
-    overpass_url = "https://overpass-api.de/api/interpreter"
+    overpass_urls = [
+        "https://overpass.kumi.systems/api/interpreter",
+        "https://lz4.overpass-api.de/api/interpreter",
+        "https://overpass-api.de/api/interpreter",
+    ]
+    headers = {
+        "User-Agent": "Lignes-de-cretes/1.0 (+https://github.com/)",
+        "Accept": "application/json",
+    }
     query = f"""
     [out:json][timeout:180];
     (
@@ -34,10 +42,24 @@ def fetch_osm_peaks(massif: str):
     out body;
     """
 
-    # Envoi de la requête
-    response = requests.post(overpass_url, data=query)
-    response.raise_for_status()
-    data = response.json()
+    response = None
+    for url in overpass_urls:
+        try:
+            print(f"🔎 Envoi de la requête Overpass vers {url}")
+            response = requests.post(url, data=query, headers=headers, timeout=180)
+            if response.status_code == 200:
+                break
+            print(f"  ⚠️ Serveur Overpass {url} a répondu {response.status_code}")
+        except requests.RequestException as e:
+            print(f"  ⚠️ Échec de connexion à {url} : {e}")
+
+    if response is None or response.status_code != 200:
+        raise RuntimeError("Aucun serveur Overpass n'a répondu correctement. Vérifiez votre connexion ou essayez un autre miroir.")
+
+    try:
+        data = response.json()
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Réponse Overpass invalide : {e}\n{response.text[:500]}")
 
     # Transformation en GeoJSON
     features = []

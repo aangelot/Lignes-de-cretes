@@ -83,8 +83,11 @@ def main(massif_name: str):
     sub_bboxes = split_bbox(bbox, n=3)
     print(f"🧩 {len(sub_bboxes)} sous-bbox générées")
 
-    # API Overpass
-    api = overpy.Overpass(url="https://overpass-api.de/api/interpreter")
+    overpass_urls = [
+        "https://overpass.kumi.systems/api/interpreter",
+        "https://lz4.overpass-api.de/api/interpreter",
+        "https://overpass-api.de/api/interpreter",
+    ]
     all_rows = []
 
     # Boucle sur chaque sous-bbox
@@ -102,22 +105,35 @@ def main(massif_name: str):
         out skel qt;
         """
 
-        # Retry automatique
-        for attempt in range(5):
-            try:
-                print(f"  🔁 Tentative {attempt+1}/5…")
-                result = api.query(query)
-                print("  ✅ Succès")
+        result = None
+        for url in overpass_urls:
+            api = overpy.Overpass(url=url)
+            print(f"  🔎 Envoi de la requête vers {url}")
+
+            for attempt in range(5):
+                try:
+                    print(f"    🔁 Tentative {attempt+1}/5…")
+                    result = api.query(query)
+                    print("    ✅ Succès")
+                    break
+                except (overpy.exception.OverpassGatewayTimeout,
+                        overpy.exception.OverpassTooManyRequests,
+                        overpy.exception.OverpassUnknownHTTPStatusCode,
+                        overpy.exception.OverpassBadRequest,
+                        overpy.exception.OverpassRuntimeError,
+                        http.client.IncompleteRead) as e:
+                    print(f"    ⚠️ Erreur Overpass sur {url} : {e}")
+                    import time
+                    print("    ⏳ Attente 5 secondes avant retry…")
+                    time.sleep(5)
+                except Exception as e:
+                    print(f"    ⚠️ Erreur inattendue sur {url} : {type(e).__name__} {e}")
+                    break
+            if result is not None:
                 break
-            except (overpy.exception.OverpassGatewayTimeout,
-                    overpy.exception.OverpassTooManyRequests,
-                    http.client.IncompleteRead) as e:
-                print(f"  ⚠️ Erreur Overpass : {e}")
-                import time
-                print("  ⏳ Attente 5 secondes avant retry…")
-                time.sleep(5)
-        else:
-            print("❌ Abandon pour cette bbox")
+
+        if result is None:
+            print(f"❌ Abandon pour cette bbox {bbox}")
             continue
 
         # Extraction des ways
