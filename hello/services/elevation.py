@@ -10,18 +10,16 @@ import requests
 logger = logging.getLogger(__name__)
 
 
-def get_elevations(path, chunk_size=500):
+def get_elevations(path):
     """
     Récupère les altitudes depuis l'API Open-Elevation.
     path : liste de tuples (lon, lat)
-    chunk_size : nombre de points par requête (max 100 recommandé)
 
     Essaie jusqu'à 3 fois en cas d'erreur ou de réponse vide.
     Si aucune tentative ne donne de résultat utilisable (ou que l'API renvoie
     un objet nul), on renvoie une liste de zéros.
     """
     url = "https://api.open-elevation.com/api/v1/lookup"
-    logger.info(f"Fetching elevations for {len(path)} points (chunk_size={chunk_size})")
     
     locations = [{"latitude": lat, "longitude": lon} for lon, lat in path]
     all_elevations = []
@@ -29,7 +27,7 @@ def get_elevations(path, chunk_size=500):
     for attempt in range(1, 4):
         try:
             logger.debug(f"Attempt {attempt}/3 for {len(path)} elevation points")
-            response = requests.post(url, json={"locations": locations}, timeout=30)
+            response = requests.post(url, json={"locations": locations}, timeout=60)
             logger.debug(f"API response status: {response.status_code}")
             response.raise_for_status()
 
