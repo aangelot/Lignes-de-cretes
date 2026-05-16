@@ -75,3 +75,10 @@ def get_route_status(request_id):
             return json.load(fh)
     except FileNotFoundError:
         return None
+    
+def update_status(message, status_callback, progress=None):
+    if status_callback:
+        try:
+            status_callback(message, progress)
+        except Exception:
+            pass
