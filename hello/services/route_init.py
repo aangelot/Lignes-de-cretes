@@ -57,7 +57,7 @@ def compute_max_hiking_distance(departure_time, return_time, level, transit_rout
 
     transit_arrival_time = departure_time
     if transit_route is not None:
-        steps = transit_route[0]["routes"][0]["legs"][0]["steps"]
+        steps = transit_route["routes"][0]["legs"][0]["steps"]
         transit_steps = [s for s in steps if s["travelMode"] == "TRANSIT"]
 
         if transit_steps:
@@ -77,7 +77,7 @@ def compute_max_hiking_distance(departure_time, return_time, level, transit_rout
     if return_transit_seconds is not None:
         transit_seconds_return = int(return_transit_seconds)
     elif transit_route is not None:
-        duration_str = transit_route[0]["routes"][0]["legs"][0]["duration"]
+        duration_str = transit_route["routes"][0]["legs"][0]["duration"]
         transit_seconds_return = int(duration_str.replace("s", ""))
     else:
         transit_seconds_return = 0

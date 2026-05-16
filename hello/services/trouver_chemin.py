@@ -123,7 +123,7 @@ def compute_best_route(
 
         # --- 1. Transport aller ---
         update_status("Calcul du transport aller", status_callback, 15)
-        travel_go = get_best_transit_route(
+        travel_go, departure_stop_id, departure_stop_info = get_best_transit_route(
             randomness=randomness,
             departure_time=departure_time,
             return_time=return_time,
@@ -132,33 +132,6 @@ def compute_best_route(
             transit_priority=transit_priority,
             hubs_entree_data=hubs_entree_data,
         )
-
-        transit_end = None
-        departure_stop_id = None
-
-        if travel_go:
-            steps = travel_go["routes"][0]["legs"][0]["steps"]
-            transit_steps = [s for s in steps if s["travelMode"] == "TRANSIT"]
-
-            if transit_steps:
-                last_transit = transit_steps[-1]
-                end_lat = last_transit["endLocation"]["latLng"]["latitude"]
-                end_lon = last_transit["endLocation"]["latLng"]["longitude"]
-                transit_end = (end_lon, end_lat)
-
-        if transit_end is None:
-            raise RuntimeError("Impossible de déterminer le point départ randonnée.")
-
-        # retrouver stop départ le plus proche
-        departure_stop_id = min(
-            stops_data.keys(),
-            key=lambda sid: (
-                (stops_data[sid]["node"][0] - transit_end[0]) ** 2
-                + (stops_data[sid]["node"][1] - transit_end[1]) ** 2
-            )
-        )
-
-        departure_stop_info = stops_data[departure_stop_id]
         update_status("Point de départ déterminé", status_callback, 25)
 
         # --- 2. Distance max + route_type ---

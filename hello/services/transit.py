@@ -78,10 +78,15 @@ def get_best_transit_route(randomness=0.1, departure_time=None, return_time=None
     hubs_departs.extend(hubs_entree_features)
 
     ## Trouver le hub de départ le plus proche de la station de départ 
+    if not address_coords:
+        raise RuntimeError(f"Impossible de géocoder l'adresse de départ : '{address}'")
+
     departure_hub_name = None
     best = None
     for hf in hubs_departs:
         hub_coords = hf.get("geometry", {}).get("coordinates")
+        if not hub_coords:
+            continue
         d = haversine((address_coords[0], address_coords[1]), (hub_coords[1], hub_coords[0]))
         if best is None or d < best[0]:
             best = (d, hf)
