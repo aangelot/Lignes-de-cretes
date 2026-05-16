@@ -19,7 +19,7 @@ def index(request):
         "randomness_default": RANDOMNESS_DEFAULT,
     })
 
-def log_get_route_call(massif, address, level, randomness_str, departure_datetime, return_datetime, transit_priority, result):
+def log_get_route_call(massif, address, level, randomness_str, departure_datetime, return_datetime, transit_priority, pois, result):
     """Enregistre l'appel à get_route dans un fichier CSV."""
     logs_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "logs")
     os.makedirs(logs_dir, exist_ok=True)
@@ -30,7 +30,7 @@ def log_get_route_call(massif, address, level, randomness_str, departure_datetim
     file_exists = os.path.isfile(csv_file)
     
     with open(csv_file, "a", newline="", encoding="utf-8") as f:
-        fieldnames = ["date_appel", "massif", "address", "level", "randomness", "departure_datetime", "return_datetime", "transit_priority", "resultat"]
+        fieldnames = ["date_appel", "massif", "address", "level", "randomness", "departure_datetime", "return_datetime", "transit_priority", "pois", "resultat"]
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         
         if not file_exists:
@@ -45,6 +45,7 @@ def log_get_route_call(massif, address, level, randomness_str, departure_datetim
             "departure_datetime": departure_datetime,
             "return_datetime": return_datetime,
             "transit_priority": transit_priority,
+            "pois": pois,
             "resultat": result
         })
 
@@ -58,6 +59,11 @@ def get_route(request):
             departure_datetime = request.GET.get("departure_datetime")
             return_datetime = request.GET.get("return_datetime")
             transit_priority = request.GET.get("transit_priority", "")
+            pois_raw = request.GET.get("pois", "[]")
+            try:
+                pois = json.loads(pois_raw)
+            except json.JSONDecodeError:
+                pois = []
 
             # --- Conversion du paramètre randomness ---
             try:
@@ -85,11 +91,12 @@ def get_route(request):
                 level=level,
                 address=address,
                 transit_priority=transit_priority,
+                pois=pois,
             )
             print("Itinéraire calculé avec succès.")
 
             # Enregistrement du succès
-            log_get_route_call(massif, address, level, randomness_str, departure_datetime, return_datetime, transit_priority, "Succès")
+            log_get_route_call(massif, address, level, randomness_str, departure_datetime, return_datetime, transit_priority, pois, "Succès")
 
             # `compute_best_route` now sauvegarde le geojson et le gpx et
             # ajoute la clé `generated_filename` au GeoJSON retourné.
@@ -100,7 +107,7 @@ def get_route(request):
             print(traceback.format_exc())
             
             # Enregistrement de l'erreur
-            log_get_route_call(massif, address, level, randomness_str, departure_datetime, return_datetime, transit_priority, str(e))
+            log_get_route_call(massif, address, level, randomness_str, departure_datetime, return_datetime, transit_priority, pois, str(e))
             
             return JsonResponse({"error": str(e)}, status=500)
 
@@ -121,6 +128,13 @@ def start_route(request):
     departure_datetime = request.GET.get("departure_datetime")
     return_datetime = request.GET.get("return_datetime")
     transit_priority = request.GET.get("transit_priority", "")
+    pois_raw = request.GET.get("pois", "[]")
+    print(pois_raw)
+    try:
+        pois = json.loads(pois_raw)
+    except json.JSONDecodeError:
+        pois = []
+    print(f"Paramètre 'pois' reçu: {pois}")
 
     try:
         randomness = float(randomness_str) / 2
@@ -142,15 +156,16 @@ def start_route(request):
                 level=level,
                 address=address,
                 transit_priority=transit_priority,
+                pois=pois,
                 status_callback=status_callback,
             )
-            log_get_route_call(massif, address, level, randomness_str, departure_datetime, return_datetime, transit_priority, "Succès")
+            log_get_route_call(massif, address, level, randomness_str, departure_datetime, return_datetime, transit_priority, pois, "Succès")
             update_route_status(request_id, message="Calcul terminé", progress=100, finished=True, result=geojson_data)
         except Exception as exc:
             error_message = str(exc)
             print("❌ ERREUR SERVEUR INTERNE (background):")
             print(traceback.format_exc())
-            log_get_route_call(massif, address, level, randomness_str, departure_datetime, return_datetime, transit_priority, error_message)
+            log_get_route_call(massif, address, level, randomness_str, departure_datetime, return_datetime, transit_priority, pois, error_message)
             update_route_status(request_id, message=f"Erreur : {error_message}", progress=100, finished=True, error=error_message)
 
     thread = threading.Thread(target=worker, daemon=True)

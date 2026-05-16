@@ -50,7 +50,7 @@ def _coords_from_station_label(label):
 
 
 def get_best_transit_route(randomness=0.1, departure_time=None, return_time=None,
-                           stops_data=None, address='', transit_priority="balanced", hubs_entree_data=None):
+                           stops_data=None, address='', transit_priority="balanced", hubs_entree_data=None, departure_coords=None):
     """
     Sélectionne le meilleur arrêt selon le score et récupère un itinéraire de transport en commun via Google Maps.
     Ajoute des règles temporelles :
@@ -59,7 +59,10 @@ def get_best_transit_route(randomness=0.1, departure_time=None, return_time=None
     - Vérifie que l'arrivée sur place laisse au moins 4h de marche avant le retour
     """
     # Tenter de récupérer les coordonnées à partir du libellé de gare (fallback geocoding)
-    address_coords = _coords_from_station_label(address)
+    if departure_coords:
+        address_coords = departure_coords
+    else:
+        address_coords = _coords_from_station_label(address)
 
     # Choisir le hub de départ le plus proche
     hubs_departs = []

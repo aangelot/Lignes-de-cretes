@@ -25,6 +25,8 @@ function setDefaultDates() {
   retInput.value = fmtLocal(nextSunday);
 }
 
+window.selectedPOIs = [];
+
 
 document.addEventListener('DOMContentLoaded', () => {
     setDefaultDates();
@@ -528,7 +530,8 @@ document.addEventListener('DOMContentLoaded', () => {
  
         const address = addressInput ? addressInput.value.trim() : '';
         const transit_priority = transitSelect ? transitSelect.value : '';
-
+        const pois = window.selectedPOIs || [];
+        
         const params = new URLSearchParams();
         params.append('massif', massif);
         params.append('level', level);
@@ -537,8 +540,10 @@ document.addEventListener('DOMContentLoaded', () => {
         params.append('return_datetime', return_datetime);
         params.append('address', address);
         params.append('transit_priority', transit_priority);
+        params.append('pois', JSON.stringify(pois));
 
         const startUrl = `/start_route/?${params.toString()}`;
+
         let requestId = null;
         try {
             const startResponse = await fetch(startUrl);

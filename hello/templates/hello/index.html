@@ -98,6 +98,7 @@
             <option value="Belledonne">Belledonne</option>
             <option value="Vanoise">la Vanoise</option>
             <option value="Aravis">les Aravis</option>
+            <option value="Morvan">le Morvan</option>
           </select>
           depuis la gare de :
           <input
@@ -149,6 +150,24 @@
           </select>
         </p>
 
+        <p>
+          Points d’intérêt à inclure :
+
+          <div id="poi-dropdown" class="dropdown">
+            <input
+              type="text"
+              id="poi-input"
+              placeholder="Rechercher un point d’intérêt..."
+              autocomplete="off"
+            >
+            <div id="poi-menu" class="dropdown-menu"></div>
+          </div>
+
+          <div id="poi-selected"></div>
+
+        </p>
+        <div id="poi-error" style="color: #ff6b6b; margin-top: 0.5em;"></div>
+
         <p style="text-align: center; margin-top: 1em;">
           <button type="submit" id="submit-btn">Trouver mon trek</button>
         </p>
@@ -176,5 +195,6 @@
 {% endif %}
 
 <script src="{% static 'hello/index.js' %}"></script>
+<script src="{% static 'hello/poi-loader.js' %}" defer></script>
 </body>
 </html>

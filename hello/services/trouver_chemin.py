@@ -21,7 +21,8 @@ from .transit import (
 from .route_init import initialize_route_parameters
 from .hiking import best_hiking_crossing, best_hiking_massif_tour, best_hiking_loop, extract_pois_near_path, _get_massif_center
 from .elevation import get_elevations, smooth_elevations, compute_total_ascent
-
+from .hiking_with_pois import compute_best_route_with_poi
+from .progress import update_status 
 
 def compute_best_route(
     randomness=0.2,
@@ -31,6 +32,7 @@ def compute_best_route(
     level: str = "intermediaire",
     address: str = "",
     transit_priority: str = "balanced",
+    pois=None,
     status_callback=None,
 ):
     """
@@ -66,13 +68,6 @@ def compute_best_route(
     with open(hubs_entree_path, "r", encoding="utf-8") as f:
         hubs_entree_data = json.load(f)
 
-    def update_status(message, progress=None):
-        if status_callback:
-            try:
-                status_callback(message, progress)
-            except Exception:
-                pass
-
     update_status("Données du massif chargées", 5)
 
     if getattr(settings, "USE_MOCK_DATA", False):
@@ -86,271 +81,284 @@ def compute_best_route(
     departure_time = datetime.fromisoformat(departure_time)
     return_time = datetime.fromisoformat(return_time)
 
-    # --- 1. Transport aller ---
-    update_status("Calcul du transport aller", 15)
-    travel_go = get_best_transit_route(
-        randomness=randomness,
-        departure_time=departure_time,
-        return_time=return_time,
-        stops_data=stops_data,
-        address=address,
-        transit_priority=transit_priority,
-        hubs_entree_data=hubs_entree_data,
-    )
-
-    transit_end = None
-    departure_stop_id = None
-
-    if travel_go:
-        steps = travel_go[0]["routes"][0]["legs"][0]["steps"]
-        transit_steps = [s for s in steps if s["travelMode"] == "TRANSIT"]
-
-        if transit_steps:
-            last_transit = transit_steps[-1]
-            end_lat = last_transit["endLocation"]["latLng"]["latitude"]
-            end_lon = last_transit["endLocation"]["latLng"]["longitude"]
-            transit_end = (end_lon, end_lat)
-
-    if transit_end is None:
-        raise RuntimeError("Impossible de déterminer le point départ randonnée.")
-
-    # retrouver stop départ le plus proche
-    departure_stop_id = min(
-        stops_data.keys(),
-        key=lambda sid: (
-            (stops_data[sid]["node"][0] - transit_end[0]) ** 2
-            + (stops_data[sid]["node"][1] - transit_end[1]) ** 2
-        )
-    )
-
-    departure_stop_info = stops_data[departure_stop_id]
-    update_status("Point de départ déterminé", 25)
-
-    # --- 2. Distance max + route_type ---
-    max_distance_m, route_type = initialize_route_parameters(
-        massif_name=massif,
-        departure_time=departure_time,
-        return_time=return_time,
-        level=level,
-        transit_route=travel_go
-    )
-
-    print(f"Distance max : {max_distance_m/1000:.1f} km")
-    print(f"Route type : {route_type}")
-
-    selected_candidate = None
-    selected_return_duration = None
-    selected_hike_path = None
-    selected_hike_distance = None
-    selected_travel_return = None
+    # Initialiser les variables communes pour les deux modes
     return_error_message = None
+    elevation_failed = False
 
-    if route_type == "crossing":
-        # Logique crossing : choisir d'abord l'arrêt retour, puis faire la randonnée
-        update_status("Recherche des arrêts retour", 35)
-        try:
-            return_candidates = choose_return_stop(
-                departure_stop_info=departure_stop_info,
-                stops_data=stops_data,
-                distance_max_m=max_distance_m,
-                transit_priority=transit_priority,
+    # ==========================================================
+    # 🔥 MODE POI → DÉLÉGATION
+    # ==========================================================
+    if pois:
+
+        update_status("Calcul du chemin avec les points d'intérêt", 10)
+
+        result = compute_best_route_with_poi(
+            randomness=randomness,
+            massif=massif,
+            departure_time=departure_time,
+            return_time=return_time,
+            level=level,
+            address=address,
+            transit_priority=transit_priority,
+            pois=pois,
+            stops_data=stops_data,
+            G=G,
+            poi_data=poi_data,
+            hubs_entree_data=hubs_entree_data,
+            status_callback=status_callback,
+        )
+
+        # 🔁 Reprise pipeline classique : ALTITUDE + FINALISATION
+
+        path = result["path"]
+        dist = result["distance"]
+        travel_go = result["travel_go"]
+        travel_return = result["travel_return"]
+        route_type = result["route_type"]
+
+    else:
+        # ==========================================================
+        # 🔥 MODE CLASSIQUE SANS POI
+        # ==========================================================
+
+        # --- 1. Transport aller ---
+        update_status("Calcul du transport aller", status_callback, 15)
+        travel_go = get_best_transit_route(
+            randomness=randomness,
+            departure_time=departure_time,
+            return_time=return_time,
+            stops_data=stops_data,
+            address=address,
+            transit_priority=transit_priority,
+            hubs_entree_data=hubs_entree_data,
+        )
+
+        transit_end = None
+        departure_stop_id = None
+
+        if travel_go:
+            steps = travel_go["routes"][0]["legs"][0]["steps"]
+            transit_steps = [s for s in steps if s["travelMode"] == "TRANSIT"]
+
+            if transit_steps:
+                last_transit = transit_steps[-1]
+                end_lat = last_transit["endLocation"]["latLng"]["latitude"]
+                end_lon = last_transit["endLocation"]["latLng"]["longitude"]
+                transit_end = (end_lon, end_lat)
+
+        if transit_end is None:
+            raise RuntimeError("Impossible de déterminer le point départ randonnée.")
+
+        # retrouver stop départ le plus proche
+        departure_stop_id = min(
+            stops_data.keys(),
+            key=lambda sid: (
+                (stops_data[sid]["node"][0] - transit_end[0]) ** 2
+                + (stops_data[sid]["node"][1] - transit_end[1]) ** 2
             )
-        except Exception as e:
-            return_candidates = []
-            return_error_message = f"Aucun arrêt retour plausible trouvé : {e}"
-            print(f"⚠️ {return_error_message}")
+        )
 
-        # Boucle de tentative sur le classement de retours
-        print(f"{len(return_candidates)} candidats retour trouvés, tentative de calcul des itinéraires...")
-        for candidate in return_candidates:
-            update_status(f"Test d'arrêts pour le trajet retour", 40)
-            try:
-                selected_candidate, selected_travel_return, selected_return_duration = compute_return_transit(
-                    [candidate], return_time, address, stops_data=stops_data, departure_time=departure_time,
-                    status_callback=update_status,
-                )
-            except Exception as e:
-                print(f"⚠️ Pas de retour TC pour candidat {candidate.get('stop_id')}: {e}")
-                continue
+        departure_stop_info = stops_data[departure_stop_id]
+        update_status("Point de départ déterminé", status_callback, 25)
 
-            # Recalculer la distance max connaissant la durée de retour TC
-            max_distance_m, route_type = initialize_route_parameters(
-                massif_name=massif,
-                departure_time=departure_time,
-                return_time=return_time,
-                level=level,
-                transit_route=travel_go,
-                return_transit_seconds=selected_return_duration,
-            )
+        # --- 2. Distance max + route_type ---
+        max_distance_m, route_type = initialize_route_parameters(
+            massif_name=massif,
+            departure_time=departure_time,
+            return_time=return_time,
+            level=level,
+            transit_route=travel_go
+        )
 
-            print(f"Distance max ajustée avec retour connu : {max_distance_m/1000:.1f} km")
+        print(f"Distance max : {max_distance_m/1000:.1f} km")
+        print(f"Route type : {route_type}")
 
-            # Vérifier si c'est une boucle (arrêt retour = arrêt aller ou < 5km)
-            is_same_stop = candidate.get("stop_id") == departure_stop_id
-            distance_to_departure = haversine(
-                departure_stop_info["node"],
-                candidate["stop_info"]["node"]
-            )
-            is_loop = is_same_stop or distance_to_departure < 5000  # 5km en mètres
-            
-            if is_loop:
-                print(f"🔁 Cas boucle détecté : arrêt retour = arrêt aller, utilisation du mode boucle")
-                update_status("Calcul du chemin en mode boucle", 55)
-                try:
-                    path, dist = best_hiking_loop(
-                        start_coord=departure_stop_info["node"],
-                        max_distance_m=max_distance_m,
-                        G=G,
-                        poi_data=poi_data,
-                        randomness=randomness,
-                        massif_name=massif_clean,
-                    )
-                except Exception as e:
-                    print(f"⚠️ Échec chemin boucle pour candidat {candidate.get('stop_id')}: {e}")
-                    continue
-            else:
-                update_status("Calcul du chemin en mode traversée du massif", 55)
-                try:
-                    path, dist = best_hiking_crossing(
-                        start_coord=departure_stop_info["node"],
-                        end_coord=candidate["stop_info"]["node"],
-                        max_distance_m=max_distance_m,
-                        G=G,
-                        poi_data=poi_data,
-                        randomness=randomness,
-                    )
-                except Exception as e:
-                    print(f"⚠️ Échec chemin randonnée pour candidat {candidate.get('stop_id')}: {e}")
-                    continue
+        selected_candidate = None
+        selected_return_duration = None
+        selected_hike_path = None
+        selected_hike_distance = None
+        selected_travel_return = None
+        return_error_message = None
 
-            selected_candidate = candidate
-            selected_hike_path = path
-            selected_hike_distance = dist
-
-            break
-
-        if selected_candidate is None:
-            return_error_message = return_error_message or "Aucun itinéraire retour en transport commun valide trouvé"
-            print(f"⚠️ {return_error_message}")
-
-            if return_candidates:
-                fallback_candidate = return_candidates[0]
-                try:
-                    selected_hike_path, selected_hike_distance = best_hiking_crossing(
-                        start_coord=departure_stop_info["node"],
-                        end_coord=fallback_candidate["stop_info"]["node"],
-                        max_distance_m=max_distance_m,
-                        G=G,
-                        poi_data=poi_data,
-                        randomness=randomness,
-                    )
-                    print(f"⚠️ Trajet randonnée de repli calculé vers {fallback_candidate.get('stop_id')} malgré absence de retour TC")
-                except Exception as e:
-                    print(f"⚠️ Échec du trajet de repli pour {fallback_candidate.get('stop_id')}: {e}")
-                    selected_hike_path = []
-                    selected_hike_distance = 0
-            else:
-                selected_hike_path = []
-                selected_hike_distance = 0
-
-    elif route_type == "massif_tour":
-        # Logique massif_tour : faire d'abord la randonnée, puis trouver l'arrêt retour
-        update_status("Mode tour du massif choisi", 45)
-        
-        try:
-            hike_path, hike_distance = best_hiking_massif_tour(
-                start_coord=departure_stop_info["node"],
-                max_distance_m=max_distance_m,
-                G=G,
-                poi_data=poi_data,
-                stops_data=stops_data,
-                randomness=randomness,
-                massif_name=massif_clean,
-            )
-            print(f"Distance randonnée tour : {hike_distance/1000:.1f} km")
-        except Exception as e:
-            raise RuntimeError(f"Échec calcul randonnée massif_tour : {e}")
-
-        # Déterminer le point d'arrivée de la randonnée
-        if not hike_path:
-            raise RuntimeError("Aucun chemin de randonnée trouvé pour massif_tour")
-
-        final_coord = hike_path[-1]  #
-
-        # Calculer la distance restante
-        remaining_distance = max_distance_m - hike_distance
-        print(f"Distance restante après randonnée : {remaining_distance/1000:.1f} km")
-
-        # Créer un faux departure_stop_info pour le point d'arrivée
-        # pour pouvoir utiliser choose_return_stop
-        arrival_stop_info = {
-            "node": final_coord,
-            "properties": {}  # Propriétés vides, choose_return_stop gère les valeurs par défaut
-        }
-
-        # Utiliser choose_return_stop depuis le point d'arrivée avec distance_max=20km
-        update_status("Recherche des arrêts retour depuis l'arrivée", 60)
-        try:
-            return_candidates = choose_return_stop(
-                departure_stop_info=arrival_stop_info,
-                stops_data=stops_data,
-                distance_max_m=20000,  # 20km
-                transit_priority=transit_priority,
-            )
-        except Exception as e:
-            return_candidates = []
-            print(f"⚠️ Erreur recherche retour 20km: {e}")
-
-        # Si aucun candidat dans 20km, élargir à 50km
-        if not return_candidates:
-            print(f"⚠️ Aucun arrêt retour trouvé dans 20km, élargissement à 50km...")
+        if route_type == "crossing":
+            # Logique crossing : choisir d'abord l'arrêt retour, puis faire la randonnée
+            update_status("Recherche des arrêts retour", status_callback, 35)
             try:
                 return_candidates = choose_return_stop(
-                    departure_stop_info=arrival_stop_info,
+                    departure_stop_info=departure_stop_info,
                     stops_data=stops_data,
-                    distance_max_m=50000,  # 50km
+                    distance_max_m=max_distance_m,
                     transit_priority=transit_priority,
                 )
             except Exception as e:
                 return_candidates = []
-                return_error_message = f"Aucun arrêt retour plausible trouvé même dans un rayon de 50km"
+                return_error_message = f"Aucun arrêt retour plausible trouvé : {e}"
                 print(f"⚠️ {return_error_message}")
 
-        selected_candidate = None
-        selected_return_duration = None
-        selected_travel_return = None
+            # Boucle de tentative sur le classement de retours
+            print(f"{len(return_candidates)} candidats retour trouvés, tentative de calcul des itinéraires...")
+            for candidate in return_candidates:
+                update_status(f"Test d'arrêts pour le trajet retour", status_callback, 40)
+                try:
+                    selected_candidate, selected_travel_return, selected_return_duration = compute_return_transit(
+                        [candidate], return_time, address, stops_data=stops_data, departure_time=departure_time,
+                        status_callback=update_status,
+                    )
+                except Exception as e:
+                    print(f"⚠️ Pas de retour TC pour candidat {candidate.get('stop_id')}: {e}")
+                    continue
 
-        # Boucle sur les candidats retour depuis le point d'arrivée
-        print(f"{len(return_candidates)} candidats retour depuis l'arrivée trouvés")
-        for candidate in return_candidates:
-            update_status(f"Tests arrêts pour le trajet retour", 65)
-            try:
-                selected_candidate, selected_travel_return, selected_return_duration = compute_return_transit(
-                    [candidate], return_time, address, stops_data=stops_data, departure_time=departure_time,
-                    status_callback=update_status,
+                # Recalculer la distance max connaissant la durée de retour TC
+                max_distance_m, route_type = initialize_route_parameters(
+                    massif_name=massif,
+                    departure_time=departure_time,
+                    return_time=return_time,
+                    level=level,
+                    transit_route=travel_go,
+                    return_transit_seconds=selected_return_duration,
                 )
-                break  # Prendre le premier qui marche
-            except Exception as e:
-                print(f"⚠️ Pas de retour TC depuis {candidate.get('stop_id')}: {e}")
-                continue
 
-        # Si aucun candidat n'a de TC valide dans 20km, élargir à 50km
-        if selected_candidate is None and return_candidates:
-            update_status("Aucun retour TC valide trouvé dans 20km, élargissement à 50km...", 70)
-            print(f"⚠️ Aucun arrêt retour avec TC valide trouvé dans 20km, élargissement à 50km...")
+                print(f"Distance max ajustée avec retour connu : {max_distance_m/1000:.1f} km")
+
+                # Vérifier si c'est une boucle (arrêt retour = arrêt aller ou < 5km)
+                is_same_stop = candidate.get("stop_id") == departure_stop_id
+                distance_to_departure = haversine(
+                    departure_stop_info["node"],
+                    candidate["stop_info"]["node"]
+                )
+                is_loop = is_same_stop or distance_to_departure < 5000  # 5km en mètres
+                
+                if is_loop:
+                    print(f"🔁 Cas boucle détecté : arrêt retour = arrêt aller, utilisation du mode boucle")
+                    update_status("Calcul du chemin en mode boucle", status_callback, 55)
+                    try:
+                        path, dist = best_hiking_loop(
+                            start_coord=departure_stop_info["node"],
+                            max_distance_m=max_distance_m,
+                            G=G,
+                            poi_data=poi_data,
+                            randomness=randomness,
+                            massif_name=massif_clean,
+                        )
+                    except Exception as e:
+                        print(f"⚠️ Échec chemin boucle pour candidat {candidate.get('stop_id')}: {e}")
+                        continue
+                else:
+                    update_status("Calcul du chemin en mode traversée du massif", status_callback, 55)
+                    try:
+                        path, dist = best_hiking_crossing(
+                            start_coord=departure_stop_info["node"],
+                            end_coord=candidate["stop_info"]["node"],
+                            max_distance_m=max_distance_m,
+                            G=G,
+                            poi_data=poi_data,
+                            randomness=randomness,
+                        )
+                    except Exception as e:
+                        print(f"⚠️ Échec chemin randonnée pour candidat {candidate.get('stop_id')}: {e}")
+                        continue
+
+                selected_candidate = candidate
+                selected_hike_path = path
+                selected_hike_distance = dist
+
+                break
+
+            if selected_candidate is None:
+                return_error_message = return_error_message or "Aucun itinéraire retour en transport commun valide trouvé"
+                print(f"⚠️ {return_error_message}")
+
+                if return_candidates:
+                    fallback_candidate = return_candidates[0]
+                    try:
+                        selected_hike_path, selected_hike_distance = best_hiking_crossing(
+                            start_coord=departure_stop_info["node"],
+                            end_coord=fallback_candidate["stop_info"]["node"],
+                            max_distance_m=max_distance_m,
+                            G=G,
+                            poi_data=poi_data,
+                            randomness=randomness,
+                        )
+                        print(f"⚠️ Trajet randonnée de repli calculé vers {fallback_candidate.get('stop_id')} malgré absence de retour TC")
+                    except Exception as e:
+                        print(f"⚠️ Échec du trajet de repli pour {fallback_candidate.get('stop_id')}: {e}")
+                        selected_hike_path = []
+                        selected_hike_distance = 0
+                else:
+                    selected_hike_path = []
+                    selected_hike_distance = 0
+
+        elif route_type == "massif_tour":
+            # Logique massif_tour : faire d'abord la randonnée, puis trouver l'arrêt retour
+            update_status("Mode tour du massif choisi", status_callback, 45)
+            
             try:
-                return_candidates_50km = choose_return_stop(
+                hike_path, hike_distance = best_hiking_massif_tour(
+                    start_coord=departure_stop_info["node"],
+                    max_distance_m=max_distance_m,
+                    G=G,
+                    poi_data=poi_data,
+                    stops_data=stops_data,
+                    randomness=randomness,
+                    massif_name=massif_clean,
+                )
+                print(f"Distance randonnée tour : {hike_distance/1000:.1f} km")
+            except Exception as e:
+                raise RuntimeError(f"Échec calcul randonnée massif_tour : {e}")
+
+            # Déterminer le point d'arrivée de la randonnée
+            if not hike_path:
+                raise RuntimeError("Aucun chemin de randonnée trouvé pour massif_tour")
+
+            final_coord = hike_path[-1]  #
+
+            # Calculer la distance restante
+            remaining_distance = max_distance_m - hike_distance
+            print(f"Distance restante après randonnée : {remaining_distance/1000:.1f} km")
+
+            # Créer un faux departure_stop_info pour le point d'arrivée
+            # pour pouvoir utiliser choose_return_stop
+            arrival_stop_info = {
+                "node": final_coord,
+                "properties": {}  # Propriétés vides, choose_return_stop gère les valeurs par défaut
+            }
+
+            # Utiliser choose_return_stop depuis le point d'arrivée avec distance_max=20km
+            update_status("Recherche des arrêts retour depuis l'arrivée", status_callback, 60)
+            try:
+                return_candidates = choose_return_stop(
                     departure_stop_info=arrival_stop_info,
                     stops_data=stops_data,
-                    distance_max_m=50000,  # 50km
+                    distance_max_m=20000,  # 20km
                     transit_priority=transit_priority,
                 )
             except Exception as e:
-                return_candidates_50km = []
-                print(f"⚠️ Erreur recherche retour 50km: {e}")
-            
-            # Tenter les candidats 50km
-            for candidate in return_candidates_50km:
+                return_candidates = []
+                print(f"⚠️ Erreur recherche retour 20km: {e}")
+
+            # Si aucun candidat dans 20km, élargir à 50km
+            if not return_candidates:
+                print(f"⚠️ Aucun arrêt retour trouvé dans 20km, élargissement à 50km...")
+                try:
+                    return_candidates = choose_return_stop(
+                        departure_stop_info=arrival_stop_info,
+                        stops_data=stops_data,
+                        distance_max_m=50000,  # 50km
+                        transit_priority=transit_priority,
+                    )
+                except Exception as e:
+                    return_candidates = []
+                    return_error_message = f"Aucun arrêt retour plausible trouvé même dans un rayon de 50km"
+                    print(f"⚠️ {return_error_message}")
+
+            selected_candidate = None
+            selected_return_duration = None
+            selected_travel_return = None
+
+            # Boucle sur les candidats retour depuis le point d'arrivée
+            print(f"{len(return_candidates)} candidats retour depuis l'arrivée trouvés")
+            for candidate in return_candidates:
+                update_status(f"Tests arrêts pour le trajet retour", status_callback, 65)
                 try:
                     selected_candidate, selected_travel_return, selected_return_duration = compute_return_transit(
                         [candidate], return_time, address, stops_data=stops_data, departure_time=departure_time,
@@ -358,69 +366,96 @@ def compute_best_route(
                     )
                     break  # Prendre le premier qui marche
                 except Exception as e:
-                    print(f"⚠️ Pas de retour TC depuis {candidate.get('stop_id')} (50km): {e}")
+                    print(f"⚠️ Pas de retour TC depuis {candidate.get('stop_id')}: {e}")
                     continue
 
-        if selected_candidate is None:
-            return_error_message = return_error_message or "Aucun arrêt retour valide trouvé même après élargissement à 50km"
-            print(f"⚠️ {return_error_message}")
-            selected_hike_path = hike_path
-            selected_hike_distance = hike_distance
+            # Si aucun candidat n'a de TC valide dans 20km, élargir à 50km
+            if selected_candidate is None and return_candidates:
+                update_status("Aucun retour TC valide trouvé dans 20km, élargissement à 50km...", status_callback, 70)
+                print(f"⚠️ Aucun arrêt retour avec TC valide trouvé dans 20km, élargissement à 50km...")
+                try:
+                    return_candidates_50km = choose_return_stop(
+                        departure_stop_info=arrival_stop_info,
+                        stops_data=stops_data,
+                        distance_max_m=50000,  # 50km
+                        transit_priority=transit_priority,
+                    )
+                except Exception as e:
+                    return_candidates_50km = []
+                    print(f"⚠️ Erreur recherche retour 50km: {e}")
+                
+                # Tenter les candidats 50km
+                for candidate in return_candidates_50km:
+                    try:
+                        selected_candidate, selected_travel_return, selected_return_duration = compute_return_transit(
+                            [candidate], return_time, address, stops_data=stops_data, departure_time=departure_time,
+                            status_callback=update_status,
+                        )
+                        break  # Prendre le premier qui marche
+                    except Exception as e:
+                        print(f"⚠️ Pas de retour TC depuis {candidate.get('stop_id')} (50km): {e}")
+                        continue
+
+            if selected_candidate is None:
+                return_error_message = return_error_message or "Aucun arrêt retour valide trouvé même après élargissement à 50km"
+                print(f"⚠️ {return_error_message}")
+                selected_hike_path = hike_path
+                selected_hike_distance = hike_distance
+            else:
+                # Ajouter le trajet piéton du point d'arrivée vers l'arrêt TC choisi
+                print(f"🛤️ Ajout trajet piéton vers arrêt TC {selected_candidate.get('stop_id')}")
+                
+                try:
+                    # Trouver les nœuds les plus proches (coordonnées sont lon/lat, graphe utilise lat/lon)
+                    start_node = find_nearest_node(G, final_coord[::-1])  # (lat, lon)
+                    end_node = find_nearest_node(G, selected_candidate["stop_info"]["node"][::-1])  # (lat, lon)
+                    
+                    # Calculer le chemin le plus court
+                    path_to_stop = shortest_path(G, start_node, end_node, weight='length')
+                    
+                    # Calculer la distance
+                    distance_to_stop = sum(
+                        G[path_to_stop[i]][path_to_stop[i+1]]['length'] 
+                        for i in range(len(path_to_stop)-1)
+                    )
+                    
+                    print(f"Distance vers arrêt TC : {distance_to_stop/1000:.1f} km")
+                    
+                    # Ajouter le chemin (sauf le premier point qui est déjà dans hike_path)
+                    hike_path.extend(path_to_stop[1:])
+                    hike_distance += distance_to_stop
+                    
+                except NetworkXNoPath:
+                    return_error_message = f"Aucun chemin piéton vers l'arrêt TC {selected_candidate.get('stop_id')}"
+                    print(f"⚠️ {return_error_message}")
+                except Exception as e:
+                    return_error_message = f"Erreur calcul trajet vers arrêt TC : {e}"
+                    print(f"⚠️ {return_error_message}")
+
+                selected_hike_path = hike_path
+                selected_hike_distance = hike_distance
+
         else:
-            # Ajouter le trajet piéton du point d'arrivée vers l'arrêt TC choisi
-            print(f"🛤️ Ajout trajet piéton vers arrêt TC {selected_candidate.get('stop_id')}")
-            
-            try:
-                # Trouver les nœuds les plus proches (coordonnées sont lon/lat, graphe utilise lat/lon)
-                start_node = find_nearest_node(G, final_coord[::-1])  # (lat, lon)
-                end_node = find_nearest_node(G, selected_candidate["stop_info"]["node"][::-1])  # (lat, lon)
-                
-                # Calculer le chemin le plus court
-                path_to_stop = shortest_path(G, start_node, end_node, weight='length')
-                
-                # Calculer la distance
-                distance_to_stop = sum(
-                    G[path_to_stop[i]][path_to_stop[i+1]]['length'] 
-                    for i in range(len(path_to_stop)-1)
-                )
-                
-                print(f"Distance vers arrêt TC : {distance_to_stop/1000:.1f} km")
-                
-                # Ajouter le chemin (sauf le premier point qui est déjà dans hike_path)
-                hike_path.extend(path_to_stop[1:])
-                hike_distance += distance_to_stop
-                
-            except NetworkXNoPath:
-                return_error_message = f"Aucun chemin piéton vers l'arrêt TC {selected_candidate.get('stop_id')}"
-                print(f"⚠️ {return_error_message}")
-            except Exception as e:
-                return_error_message = f"Erreur calcul trajet vers arrêt TC : {e}"
-                print(f"⚠️ {return_error_message}")
+            raise ValueError(f"route_type inconnu : {route_type}")
 
-            selected_hike_path = hike_path
-            selected_hike_distance = hike_distance
+        # --- 4. Variables communes ---
+        if selected_hike_path is None:
+            selected_hike_path = []
+            selected_hike_distance = 0
 
-    else:
-        raise ValueError(f"route_type inconnu : {route_type}")
+        path = selected_hike_path
+        dist = selected_hike_distance
+        travel_return = selected_travel_return
 
-    # --- 4. Variables communes ---
-    if selected_hike_path is None:
-        selected_hike_path = []
-        selected_hike_distance = 0
+        print(f"Distance randonnée finale : {dist/1000:.1f} km")
 
-    path = selected_hike_path
-    dist = selected_hike_distance
-    travel_return = selected_travel_return
+        path = selected_hike_path
+        dist = selected_hike_distance
+        travel_return = selected_travel_return
 
-    print(f"Distance randonnée finale : {dist/1000:.1f} km")
+        print(f"Distance randonnée finale : {dist/1000:.1f} km")
 
-    path = selected_hike_path
-    dist = selected_hike_distance
-    travel_return = selected_travel_return
-
-    print(f"Distance randonnée finale : {dist/1000:.1f} km")
-
-    update_status("Calcul des altitudes", 90)
+    update_status("Calcul des altitudes", status_callback, 90)
     # --- 6. Altitudes ---
     if not path:
         elevations = []
@@ -452,7 +487,7 @@ def compute_best_route(
         "end_coord": path[-1],
         "path_length": dist,
         "route_type": route_type,
-        "transit_go": travel_go[0],
+        "transit_go": travel_go,
         "transit_back": travel_return,
         "path_elevation": total_ascent,
     }
@@ -505,10 +540,10 @@ def compute_best_route(
     try:
         save_geojson_gpx(result, output_path=output_geojson_path)
         result["generated_filename"] = f"{filename_base}.geojson"
-        update_status("Sauvegarde terminée", 98)
+        update_status("Sauvegarde terminée", status_callback, 98)
     except Exception as e:
         print(f"⚠️ erreur sauvegarde : {e}")
-        update_status(f"Erreur de sauvegarde : {e}", 98)
+        update_status(f"Erreur de sauvegarde : {e}", status_callback, 98)
 
     # --- 10. Sauvegarde compteurs d'échec ---
     try:
