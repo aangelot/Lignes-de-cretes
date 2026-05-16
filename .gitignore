@@ -183,3 +183,4 @@ data/*
 !data/.gitkeep
 hello/static/hello/data/
 !hello/static/hello/data/optimized_routes_example.geojson
+Lignes-de-cretes.code-workspace
