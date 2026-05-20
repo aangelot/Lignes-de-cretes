@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path' | grep -q 'index\\.html$' && sed -i \"/{% static/s/\\xe2\\x80\\x98/'/g; /{% static/s/\\xe2\\x80\\x99/'/g\" /home/anthony/Sources/Lignes-de-cretes/hello/templates/hello/index.html 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}

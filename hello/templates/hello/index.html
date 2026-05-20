@@ -48,15 +48,60 @@
     </div>
 </header>
 
-<!-- Modale -->
-<div id="infoModal" class="modal">
-    <div class="modal-content">
-    <h2>À propos de Lignes de crêtes</h2>
-    <p>🌄 Lignes de crêtes, c’est une application libre qui invite à (re)découvrir les montagnes autrement — en combinant randonnée et transports en commun. Elle calcule pour vous des itinéraires de trek optimisés selon vos envies : durée, confort, points d’intérêt… et même une touche d’aléatoire pour l’aventure. </p>
-    <p>🥾🚆Chaque parcours est une invitation à ralentir, explorer et se reconnecter au vivant, en privilégiant des modes de déplacement respectueux de la nature et de ses équilibres. 💚</p>
-    <p> Cette application utilise les données d'<a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>. Cartographie : © OpenStreetMap contributors. Données sous licence ODbL.</p>
-    <button class="close-btn" id="closeModal">Fermer</button>
-    </div>
+<!-- Modale d’onboarding -->
+  <div id="infoModal" class="modal">
+      <div class="modal-content onboarding-modal">
+
+          <button id="onboarding-close" class="onboarding-close-btn" aria-label="Fermer">×</button>
+
+          <div class="onboarding-slides">
+
+              <!-- Slide 1 : Randonnée + transports -->
+              <div class="onboarding-slide active">
+                  <img class="slide-illustration" src="{% static 'hello/panel1.png' %}" alt="Randonnée en montagne avec un train"/>
+                  <h3 class="slide-title">🌄 Randonnée + transports</h3>
+                  <p class="slide-text">Lignes de crêtes calcule des itinéraires de trek en montagne en combinant randonnée pédestre et transports en commun.</p>
+              </div>
+
+              <!-- Slide 2 : Départ ≠ Arrivée -->
+              <div class="onboarding-slide">
+                  <img class="slide-illustration" src="{% static 'hello/panel2.png' %}" alt="Carte montrant un départ et une arrivée différents"/>
+                  <h3 class="slide-title">🚊 Partez et revenez par des gares différentes</h3>
+                  <p class="slide-text">L’appli calcule vos trajets aller et retour en train ou bus. Contrairement à la voiture, votre point de départ et d’arrivée dans le massif peuvent être différents !</p>
+              </div>
+
+              <!-- Slide 3 : Ce que vous obtenez -->
+              <div class="onboarding-slide">
+                  <img class="slide-illustration" src="{% static 'hello/panel3.png' %}" alt="Les trois étapes : aller, randonnée, retour"/>
+                  <h3 class="slide-title">🗺️ Votre itinéraire complet</h3>
+                  <p class="slide-text">En un seul calcul : le trajet aller en transports, le tracé de votre randonnée avec les points d’intérêt, et le trajet retour.</p>
+              </div>
+
+              <!-- Slide 4 : Personnalisation -->
+              <div class="onboarding-slide">
+                  <img class="slide-illustration" src="{% static 'hello/panel4.png' %}" alt="Options de personnalisation de votre trek"/>
+                  <h3 class="slide-title">⚙️ Personnalisez votre aventure</h3>
+                  <p class="slide-text">Massif, durée, niveau de marche, priorités transport, points d’intérêt… et une touche d’aléatoire pour les plus aventureux !</p>
+                  <p class="slide-attribution">Données <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> · © OpenStreetMap contributors · Licence ODbL</p>
+              </div>
+
+          </div>
+
+          <!-- Points de navigation -->
+          <div class="onboarding-dots">
+              <span class="onboarding-dot active"></span>
+              <span class="onboarding-dot"></span>
+              <span class="onboarding-dot"></span>
+              <span class="onboarding-dot"></span>
+          </div>
+
+          <!-- Boutons de navigation -->
+          <div class="onboarding-nav">
+              <button id="onboarding-prev" class="onboarding-btn-prev" style="visibility:hidden">← Précédent</button>
+              <button id="onboarding-next" class="onboarding-btn-next">Suivant →</button>
+          </div>
+
+      </div>
 </div>
 <!-- Modale d'avertissement Google Maps -->
 <div id="gmapsWarningModal" class="modal">

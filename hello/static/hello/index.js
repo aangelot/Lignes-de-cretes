@@ -30,13 +30,46 @@ window.selectedPOIs = [];
 
 document.addEventListener('DOMContentLoaded', () => {
     setDefaultDates();
-    // === Modale info ===
+    // === Modale onboarding ===
     const infoBtn = document.getElementById('infoBtn');
     const infoModal = document.getElementById('infoModal');
-    const closeModal = document.getElementById('closeModal');
+    const onboardingSlides = Array.from(document.querySelectorAll('.onboarding-slide'));
+    const onboardingDots = Array.from(document.querySelectorAll('.onboarding-dot'));
+    const prevBtn = document.getElementById('onboarding-prev');
+    const nextBtn = document.getElementById('onboarding-next');
+    let currentSlide = 0;
 
-    infoBtn.onclick = () => infoModal.style.display = 'flex';
-    closeModal.onclick = () => infoModal.style.display = 'none';
+    function goToSlide(n) {
+        onboardingSlides[currentSlide].classList.remove('active');
+        onboardingDots[currentSlide].classList.remove('active');
+        currentSlide = n;
+        onboardingSlides[currentSlide].classList.add('active');
+        onboardingDots[currentSlide].classList.add('active');
+        prevBtn.style.visibility = currentSlide === 0 ? 'hidden' : 'visible';
+        nextBtn.textContent = currentSlide === onboardingSlides.length - 1 ? 'Commencer !' : 'Suivant →';
+    }
+
+    const closeOnboarding = () => { infoModal.style.display = 'none'; localStorage.setItem('onboarding_seen', '1'); };
+
+    document.getElementById('onboarding-close').onclick = closeOnboarding;
+    onboardingDots.forEach((dot, i) => { dot.onclick = () => goToSlide(i); });
+    prevBtn.onclick = () => { if (currentSlide > 0) goToSlide(currentSlide - 1); };
+    nextBtn.onclick = () => {
+        if (currentSlide < onboardingSlides.length - 1) {
+            goToSlide(currentSlide + 1);
+        } else {
+            closeOnboarding();
+        }
+    };
+
+    infoBtn.onclick = () => {
+        goToSlide(0);
+        infoModal.style.display = 'flex';
+    };
+
+    if (!localStorage.getItem('onboarding_seen')) {
+        infoModal.style.display = 'flex';
+    }
 
     // Modale d'avertissement GPX (existe toujours dans le template)
     const gpxWarningModal = document.getElementById('gpxWarningModal');
@@ -82,7 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.onclick = e => {
-        if (e.target === infoModal) infoModal.style.display = 'none';
+        if (e.target === infoModal) closeOnboarding();
         if (gpxWarningModal && e.target === gpxWarningModal) gpxWarningModal.style.display = 'none';
         if (gmapsWarningModal && e.target === gmapsWarningModal) gmapsWarningModal.style.display = 'none';
     };

@@ -224,6 +224,26 @@
     padding: 1.5rem;
   }
 
+  #infoModal {
+    z-index: 2100;
+  }
+
+  .onboarding-modal {
+    padding: 0;
+  }
+
+  .slide-illustration {
+    height: 130px;
+  }
+
+  .slide-title {
+    font-size: 1rem;
+  }
+
+  .onboarding-nav {
+    padding: 0.4rem 1.25rem 1.2rem;
+  }
+
   /* ===== LEAFLET CONTROLS ===== */
   .leaflet-control-zoom {
     transform: scale(0.9);

@@ -107,6 +107,154 @@ button:hover {
     cursor: pointer;
 }
 
+/* ======= MODALE ONBOARDING ======= */
+.onboarding-modal {
+    position: relative;
+    padding: 0;
+    width: 520px;
+    max-width: 95vw;
+    overflow: hidden;
+}
+
+.onboarding-close-btn {
+    position: absolute;
+    top: 0.7rem;
+    right: 0.7rem;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: #bbb;
+    font-size: 1.35rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s, background 0.2s;
+    margin-top: 0;
+    z-index: 10;
+}
+
+.onboarding-close-btn:hover {
+    color: #555;
+    background: #f0f0f0;
+}
+
+.onboarding-slides {
+    display: grid;
+}
+
+.onboarding-slide {
+    grid-row: 1;
+    grid-column: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1.75rem 2rem 0.5rem;
+    text-align: center;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.onboarding-slide.active {
+    visibility: visible;
+    pointer-events: auto;
+    z-index: 1;
+}
+
+.slide-illustration {
+    display: block;
+    width: 100%;
+    height: 160px;
+    border-radius: 8px;
+    margin-bottom: 1.1rem;
+    object-fit: contain;
+}
+
+.slide-title {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.15rem;
+    color: #19191e;
+    margin: 0 0 0.55rem;
+    font-weight: 600;
+}
+
+.slide-text {
+    color: #444;
+    font-size: 0.93rem;
+    line-height: 1.55;
+    margin: 0;
+}
+
+.slide-attribution {
+    font-size: 0.72rem;
+    color: #aaa;
+    margin: 0.8rem 0 0;
+}
+
+.slide-attribution a {
+    color: #999 !important;
+}
+
+.onboarding-dots {
+    display: flex;
+    justify-content: center;
+    gap: 0.55rem;
+    padding: 0.9rem 0 0.2rem;
+}
+
+.onboarding-dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #ddd;
+    cursor: pointer;
+    transition: background 0.25s, transform 0.25s;
+}
+
+.onboarding-dot.active {
+    background: #ef8409;
+    transform: scale(1.3);
+}
+
+.onboarding-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 1.75rem 1.5rem;
+}
+
+.onboarding-btn-prev {
+    background: #f0f0f0;
+    color: #666;
+    font-size: 0.88rem;
+    padding: 0.5rem 1rem;
+    margin-top: 0;
+}
+
+.onboarding-btn-prev:hover {
+    background: #e2e2e2;
+    color: #333;
+}
+
+.onboarding-btn-next {
+    background: #ef8409;
+    color: white;
+    font-size: 0.88rem;
+    font-weight: 600;
+    padding: 0.5rem 1.25rem;
+    margin-top: 0;
+}
+
+.onboarding-btn-next:hover {
+    background: #d67208;
+    color: white;
+}
+
 a, a:visited, a:link, a:active {
     color: #cccccc;
     text-decoration: underline;
