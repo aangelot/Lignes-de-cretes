@@ -45,6 +45,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (gpxCancelBtn) gpxCancelBtn.onclick = () => { if (gpxWarningModal) gpxWarningModal.style.display = 'none'; };
 
+    // Modale d'avertissement Google Maps
+    const gmapsWarningModal = document.getElementById('gmapsWarningModal');
+    const gmapsCancelBtn = document.getElementById('gmaps-cancel-btn');
+    const gmapsConfirmBtn = document.getElementById('gmaps-confirm-btn');
+    let pendingGmapsUrl = null;
+
+    if (gmapsCancelBtn) gmapsCancelBtn.onclick = () => { if (gmapsWarningModal) gmapsWarningModal.style.display = 'none'; };
+    if (gmapsConfirmBtn) gmapsConfirmBtn.onclick = () => {
+        if (pendingGmapsUrl) { window.open(pendingGmapsUrl, '_blank'); pendingGmapsUrl = null; }
+        if (gmapsWarningModal) gmapsWarningModal.style.display = 'none';
+    };
+
     // Dernier nom de fichier généré côté serveur (ex: "route_... .geojson")
     let lastGeneratedFilename = null;
 
@@ -72,6 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.onclick = e => {
         if (e.target === infoModal) infoModal.style.display = 'none';
         if (gpxWarningModal && e.target === gpxWarningModal) gpxWarningModal.style.display = 'none';
+        if (gmapsWarningModal && e.target === gmapsWarningModal) gmapsWarningModal.style.display = 'none';
     };
 
     // === Initialisation de la carte ===
@@ -122,11 +135,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const routeStatusContainer = document.getElementById('route-status-container');
 
     function setRouteStatus(message) {
-        if (!routeStatusContainer) return;
         const safeMessage = message ? String(message) : '';
-        routeStatusContainer.innerHTML = safeMessage
-            ? `<span style="opacity:0.8;">${safeMessage}</span>`
-            : '';
+        const btnDetail = document.getElementById('submit-btn-detail');
+        if (btnDetail) {
+            btnDetail.textContent = safeMessage;
+        } else if (routeStatusContainer) {
+            routeStatusContainer.innerHTML = safeMessage
+                ? `<span style="opacity:0.8;">${safeMessage}</span>`
+                : '';
+        }
     }
 
     function validateDates() {
@@ -325,11 +342,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (firstCoords && lastCoords) {
                 const gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(firstCoords)}&destination=${encodeURIComponent(lastCoords)}&travelmode=transit&hl=fr`;
-                container.innerHTML += `
-                    <button class="gmaps-btn" onclick="window.open('${gmapsUrl}', '_blank')">
-                        Autres itinéraires sur Google Maps
-                    </button>
-                `;
+                const btn = document.createElement('button');
+                btn.className = 'gmaps-btn';
+                btn.textContent = 'Autres itinéraires sur Google Maps';
+                btn.addEventListener('click', () => {
+                    pendingGmapsUrl = gmapsUrl;
+                    if (gmapsWarningModal) gmapsWarningModal.style.display = 'flex';
+                });
+                container.appendChild(btn);
             }
         }
     }
@@ -452,7 +472,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const modal = document.getElementById('modal-' + type);
             modal.innerHTML = `
                 <div class="modal-header">
-                    <h3>${type === 'go' ? '➡️🚊 Aller' : '⬅️🚊 Retour'}</h3>
+                    <h3>${type === 'go' ? '➡️🚊 Aller en transports' : '⬅️🚊 Retour en transports'}</h3>
                     <button class="toggle-btn">▼</button>
                 </div>
                 <div class="modal-body"></div>
@@ -514,7 +534,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const submitBtn = document.getElementById('submit-btn');
         submitBtn.disabled = true;
         const originalBtnText = submitBtn.textContent;
-        submitBtn.textContent = 'Calcul en cours…';
+        submitBtn.innerHTML = `Calcul en cours :<br><span id="submit-btn-detail" style="font-size:0.8em; opacity:0.65; font-weight:400;"></span>`;
         setRouteStatus('Démarrage du calcul du tracé...');
 
         clearMapOverlays();

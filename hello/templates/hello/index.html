@@ -58,6 +58,22 @@
     <button class="close-btn" id="closeModal">Fermer</button>
     </div>
 </div>
+<!-- Modale d'avertissement Google Maps -->
+<div id="gmapsWarningModal" class="modal">
+  <div class="modal-content">
+    <h2>Redirection vers Google Maps</h2>
+    <p>
+      Vous allez être redirigé·e vers Google Maps. Les points de départ et d'arrivée
+      seront correctement renseignés, mais <strong>la date et l'heure ne seront pas
+      transmises</strong> : vous devrez les ajuster manuellement dans Google Maps pour
+      obtenir des horaires adaptés à votre randonnée.
+    </p>
+    <div style="display:flex; gap:0.5em; justify-content:flex-end; margin-top:1em;">
+      <button class="close-btn" id="gmaps-cancel-btn">Annuler</button>
+      <button class="close-btn highlight" id="gmaps-confirm-btn">Continuer vers Google Maps</button>
+    </div>
+  </div>
+</div>
 <!-- Modale d'avertissement avant téléchargement GPX -->
 <div id="gpxWarningModal" class="modal">
   <div class="modal-content">
@@ -90,15 +106,15 @@
         <p>
           Je souhaite partir dans  
           <select id="massif" name="massif">
+            <option value="Aravis">les Aravis</option>
             <option value="Massif des Bauges">les Bauges</option>
+            <option value="Belledonne">Belledonne</option>
             <option value="Chartreuse">la Chartreuse</option>
             <option value="Haut Jura">le Haut Jura</option>
-            <option value="Queyras">le Queyras</option>
-            <option value="Vercors">le Vercors</option>
-            <option value="Belledonne">Belledonne</option>
-            <option value="Vanoise">la Vanoise</option>
-            <option value="Aravis">les Aravis</option>
             <option value="Morvan">le Morvan</option>
+            <option value="Queyras">le Queyras</option>
+            <option value="Vanoise">la Vanoise</option>
+            <option value="Vercors">le Vercors</option>
           </select>
           depuis la gare de :
           <input
@@ -144,9 +160,9 @@
         <p>
           Priorité pour le trajet en transports :
           <select id="transit_priority" name="transit_priority">
-            <option value="fast">⏱️ Le moins de temps dans les transports</option>
-            <option value="balanced" selected>⚖️ Équilibré</option>
-            <option value="deep_nature">🌲 Aller au coeur du massif</option>
+            <option value="fast">⏱️ Moins de transport, départ potentiel en périphérie</option>
+            <option value="balanced" selected>⚖️ Équilibré — durée raisonnable, bonne immersion</option>
+            <option value="deep_nature">🌲 Aller au coeur du massif - plus de transport</option>
           </select>
         </p>
 
@@ -171,17 +187,15 @@
         <p style="text-align: center; margin-top: 1em;">
           <button type="submit" id="submit-btn">Trouver mon trek</button>
         </p>
-        <div id="route-status-container" style="background:transparent; color:#666; border:none; border-radius:12px; max-width:520px; font-size:0.95rem; line-height:1.5; text-align:center;">
-        </div>
       </form>
     </div>
   </div>
 
-  <!-- Modale Résumé -->
-  <div id="modal-summary" class="floating-modal collapsed"></div>
-  
   <!-- Modale Aller -->
   <div id="modal-go" class="floating-modal collapsed"></div>
+
+  <!-- Modale Résumé -->
+  <div id="modal-summary" class="floating-modal collapsed"></div>
 
   <!-- Modale Retour -->
   <div id="modal-back" class="floating-modal collapsed"></div>

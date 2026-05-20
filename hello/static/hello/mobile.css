@@ -100,7 +100,8 @@
   }
 
   /* ===== FLOATING MODALS ===== */
-    #gpxWarningModal {
+    #gpxWarningModal,
+    #gmapsWarningModal {
         z-index: 1003 !important;
         }
 
