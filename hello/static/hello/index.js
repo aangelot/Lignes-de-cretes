@@ -428,6 +428,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
         currentLayer = L.geoJSON(data, { style: { color: '#ef8409', weight: 4, opacity: 0.9 } }).addTo(map);
 
+        const props = data.features[0].properties;
+
+        let departLabel = "Départ";
+        let arriveeLabel = "Arrivée";
+
+        if (props.transit_go) {
+            let lastArrStop = null;
+            props.transit_go.routes.forEach(route => {
+                route.legs.forEach(leg => {
+                    leg.steps.forEach(step => {
+                        if (step.travelMode === "TRANSIT") {
+                            lastArrStop = step.transitDetails.stopDetails.arrivalStop.name;
+                        }
+                    });
+                });
+            });
+            if (lastArrStop) departLabel = "Départ : " + lastArrStop;
+        }
+
+        if (props.transit_back) {
+            let firstDepStop = null;
+            outer: for (const route of props.transit_back.routes) {
+                for (const leg of route.legs) {
+                    for (const step of leg.steps) {
+                        if (step.travelMode === "TRANSIT") {
+                            firstDepStop = step.transitDetails.stopDetails.departureStop.name;
+                            break outer;
+                        }
+                    }
+                }
+            }
+            if (firstDepStop) arriveeLabel = "Arrivée : " + firstDepStop;
+        }
+
         currentLayer.eachLayer(layer => {
             const coords = layer.getLatLngs();
             const startIcon = L.icon({
@@ -444,8 +478,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 popupAnchor: [0, -50]
             });
 
-            startMarker = L.marker(coords[0], { icon: startIcon }).addTo(map).bindPopup("Départ");
-            endMarker = L.marker(coords[coords.length-1], { icon: endIcon }).addTo(map).bindPopup("Arrivée");
+            startMarker = L.marker(coords[0], { icon: startIcon }).addTo(map).bindPopup(departLabel);
+            endMarker = L.marker(coords[coords.length-1], { icon: endIcon }).addTo(map).bindPopup(arriveeLabel);
 
             if (L.PolylineDecorator) {
                 arrowDecorator = L.polylineDecorator(layer, {
@@ -460,8 +494,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (formModal) {
             formModal.classList.add('collapsed');
         }
-
-        const props = data.features[0].properties;
 
         try {
             if (props && Array.isArray(props.near_pois) && props.near_pois.length > 0) {
