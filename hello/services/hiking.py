@@ -30,7 +30,7 @@ def best_hiking_crossing(
     direct_line = LineString([start_coord, end_coord])
     
     # Adapter la largeur du buffer selon la distance du trajet
-    buffer_width_km = 10 if max_distance_m >= 20000 else 5  # 5km pour < 20km, 10km sinon
+    buffer_width_km = 10 if max_distance_m >= 20000 else 2  # 5km pour < 20km, 10km sinon
     buffer_width_degrees = buffer_width_km / 111.0  # Approximation : 1 degré ≈ 111 km
     buffer_geom = direct_line.buffer(buffer_width_degrees, cap_style=2)  # Caps plats pour éviter l'extension longitudinale
 
@@ -557,6 +557,32 @@ def _filter_poi_data_by_distance(poi_data, path_coords, excluded_poi_ids=None, m
     return filtered
 
 
+def _find_nearest_poi(coord, poi_data, max_search_radius_m=None):
+    """
+    Retourne (coord, titre) du POI le plus proche de `coord`.
+    Si max_search_radius_m est fourni, retourne None si aucun POI n'est dans ce rayon.
+    """
+    best_dist = float("inf")
+    best_coord = None
+    best_titre = None
+
+    for feat in poi_data.get("features", []):
+        coords = feat.get("geometry", {}).get("coordinates")
+        if not coords or len(coords) < 2:
+            continue
+        poi_coord = tuple(coords)
+        dist = haversine(coord, poi_coord)
+        if dist < best_dist:
+            best_dist = dist
+            best_coord = poi_coord
+            best_titre = feat.get("properties", {}).get("titre")
+
+    if max_search_radius_m is not None and best_dist > max_search_radius_m:
+        return None, None, best_dist
+
+    return best_coord, best_titre, best_dist
+
+
 def best_hiking_loop(
     start_coord,
     max_distance_m,
@@ -603,12 +629,18 @@ def best_hiking_loop(
     
     # Convertir distance en degrés (approximation: 1 degré ≈ 111 km)
     distance_in_degrees = target_distance_m / (111000)
-    
+
     fictitious_lon = start_lon + distance_in_degrees * math.cos(angle_to_center)
     fictitious_lat = start_lat + distance_in_degrees * math.sin(angle_to_center)
     fictitious_point = (fictitious_lon, fictitious_lat)
-    
-    print(f"🎯 Point fictif créé à {haversine(start_coord, fictitious_point):.0f}m")
+
+    # Remplacer le point fictif par le POI le plus proche (sans limite de distance)
+    nearest_coord, nearest_titre, nearest_dist = _find_nearest_poi(fictitious_point, poi_data)
+    if nearest_coord is not None:
+        fictitious_point = nearest_coord
+        print(f"🎯 Point intermédiaire: POI '{nearest_titre}' à {nearest_dist:.0f}m du point fictif, {haversine(start_coord, fictitious_point):.0f}m du départ")
+    else:
+        print(f"🎯 Aucun POI disponible, point fictif conservé à {haversine(start_coord, fictitious_point):.0f}m")
     
     # Sauvegarder les poids originaux du graphe pour restauration ultérieure
     original_weights = {}
