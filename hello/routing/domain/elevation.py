@@ -59,7 +59,7 @@ def get_elevations(path):
     return all_elevations
 
 
-def smooth_elevations(elevations, window=3):
+def smooth_elevations(elevations, window=9):
     """
     Lisse les altitudes avec une moyenne mobile.
     window : taille de la fenêtre de lissage (impair recommandé)

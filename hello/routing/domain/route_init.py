@@ -1,29 +1,9 @@
-import json
-import os
 from datetime import datetime, timedelta, time as dtime
-from django.conf import settings
-from hello.management.commands.utils import slugify
 from hello.constants import LEVEL_DISTANCE_MAP, WALK_SECONDS_PER_DAY, MIN_DISTANCE_DAY1
+from hello.routing.utils.poi_tools import get_massif_diagonal_km
 
 
-def get_massif_diagonal_km(massif_name):
-    """
-    Lit la diagonale du massif depuis massifs_coord_max.geojson.
-    """
-    file_path = os.path.join(settings.BASE_DIR, "data", "input", "massifs_coord_max.geojson")
-
-    with open(file_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    massif_name =slugify(massif_name)
-    for feature in data.get("features", []):
-        props = feature.get("properties", {})
-        if slugify(props.get("nom_pnr", "")) == massif_name:
-            return float(props.get("diagonal_km"))
-
-    raise RuntimeError(f"Diagonale introuvable pour le massif '{massif_name}'")
-
-
-def choose_route_type(distance_max_m, diagonal_km):
+def _choose_route_type(distance_max_m, diagonal_km):
     """
     crossing si distance inférieure à la diagonale du massif,
     sinon logique tour progressif.
@@ -128,6 +108,6 @@ def initialize_route_parameters(
         return_transit_seconds=return_transit_seconds
     )
 
-    route_type = choose_route_type(distance_max_m, diagonal_km)
+    route_type = _choose_route_type(distance_max_m, diagonal_km)
 
     return distance_max_m, route_type

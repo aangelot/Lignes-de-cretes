@@ -24,8 +24,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-%-*ld^51tnr8(1cly--lu+cxy*_pbu6*e5wb$+ro%b!*wlohc%'
 
 DEBUG = True
-USE_MOCK_DATA = False
-USE_MOCK_ROUTE_CREATION = False
 
 ALLOWED_HOSTS = ['0.0.0.0', 'localhost', '127.0.0.1',  '37.59.105.122', '2001:41d0:305:2100::1b3b', 'lignes-de-cretes.fr', 'www.lignes-de-cretes.fr']
 
@@ -129,3 +127,27 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
+        },
+    },
+    "formatters": {
+        "simple": {
+            "format": "{levelname} {name} — {message}",
+            "style": "{",
+        },
+    },
+    "loggers": {
+        "hello.routing": {
+            "handlers": ["console"],
+            "level": "DEBUG" if DEBUG else "WARNING",
+            "propagate": False,
+        },
+    },
+}

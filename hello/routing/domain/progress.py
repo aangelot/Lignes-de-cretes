@@ -1,17 +1,20 @@
 import json
+import logging
 import os
 from datetime import datetime
 from django.conf import settings
 
+logger = logging.getLogger(__name__)
+
 STATUS_DIR = os.path.join(settings.BASE_DIR, "data", "logs", "route_status")
 
 
-def ensure_status_dir():
+def _ensure_status_dir():
     os.makedirs(STATUS_DIR, exist_ok=True)
 
 
-def status_file_path(request_id):
-    ensure_status_dir()
+def _status_file_path(request_id):
+    _ensure_status_dir()
     return os.path.join(STATUS_DIR, f"{request_id}.json")
 
 
@@ -23,7 +26,7 @@ def _write_json_atomic(path, data):
 
 
 def initialize_route_status(request_id, message="Démarrage du calcul du tracé...", progress=0):
-    path = status_file_path(request_id)
+    path = _status_file_path(request_id)
     state = {
         "request_id": request_id,
         "status": message,
@@ -38,7 +41,7 @@ def initialize_route_status(request_id, message="Démarrage du calcul du tracé.
 
 
 def update_route_status(request_id, message=None, progress=None, finished=None, error=None, result=None):
-    path = status_file_path(request_id)
+    path = _status_file_path(request_id)
     try:
         with open(path, "r", encoding="utf-8") as fh:
             state = json.load(fh)
@@ -69,7 +72,7 @@ def update_route_status(request_id, message=None, progress=None, finished=None, 
 
 
 def get_route_status(request_id):
-    path = status_file_path(request_id)
+    path = _status_file_path(request_id)
     try:
         with open(path, "r", encoding="utf-8") as fh:
             return json.load(fh)
@@ -80,5 +83,5 @@ def update_status(message, status_callback, progress=None):
     if status_callback:
         try:
             status_callback(message, progress)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("status_callback error: %s", e)
