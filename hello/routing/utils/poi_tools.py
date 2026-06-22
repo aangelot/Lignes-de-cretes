@@ -35,8 +35,8 @@ def get_massif_center(massif_name="Chartreuse"):
     return (5.79889015, 45.3798141)  # Chartreuse par défaut
 
 def get_massif_diagonal_km(massif_name):
-    """Lit la diagonale du massif depuis massifs_coord_max.geojson."""
-    file_path = os.path.join(settings.BASE_DIR, "data", "input", "massifs_coord_max.geojson")
+    """Lit la diagonale du massif depuis massifs_coord_max_with_centers.geojson."""
+    file_path = os.path.join(settings.BASE_DIR, "data", "input", "massifs_coord_max_with_centers.geojson")
     with open(file_path, "r", encoding="utf-8") as f:
         data = json.load(f)
     massif_name = slugify(massif_name)

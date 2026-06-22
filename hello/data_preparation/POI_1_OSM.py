@@ -6,7 +6,7 @@ from utils import slugify
 
 def fetch_osm_peaks(massif: str):
     # Charger les coordonnées bbox depuis le fichier GeoJSON
-    with open("data/input/massifs_coord_max.geojson", "r", encoding="utf-8") as f:
+    with open("data/input/massifs_coord_max_with_centers.geojson", "r", encoding="utf-8") as f:
         pnr_data = json.load(f)
 
     bbox = None
@@ -22,7 +22,7 @@ def fetch_osm_peaks(massif: str):
             break
 
     if bbox is None:
-        raise ValueError(f"❌ Aucune entrée trouvée pour le PNR '{massif}' dans massifs_coord_max.geojson")
+        raise ValueError(f"❌ Aucune entrée trouvée pour le PNR '{massif}' dans massifs_coord_max_with_centers.geojson")
 
     # Requête Overpass
     overpass_urls = [

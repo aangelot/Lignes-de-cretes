@@ -25,8 +25,8 @@ def choisir_massif():
     sys.exit(1)
 
 def read_bbox_from_coord_max(massif):
-    """Lit la bbox (lat_min, lng_min, lat_max, lng_max) depuis data/input/massifs_coord_max.geojson."""
-    path = "data/input/massifs_coord_max.geojson"
+    """Lit la bbox (lat_min, lng_min, lat_max, lng_max) depuis data/input/massifs_coord_max_with_centers.geojson."""
+    path = "data/input/massifs_coord_max_with_centers.geojson"
     if not os.path.exists(path):
         return None
     with open(path, "r", encoding="utf-8") as f:
