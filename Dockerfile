@@ -1,5 +1,5 @@
-# Image de base : Python 3.12 sur Debian slim
-FROM python:3.12-slim-bookworm
+# Image de base : Python 3.14 sur Debian slim
+FROM python:3.14-slim-trixie
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -26,7 +26,10 @@ WORKDIR /app
 # Copier requirements et installer Python
 COPY --chown=appuser:appuser requirements.txt .
 RUN pip install --upgrade pip setuptools wheel cython numpy \
- && pip install --no-cache-dir --no-build-isolation -r requirements.txt \
+ && pip install --no-cache-dir "GDAL==$(gdal-config --version)" \
+ && grep -v -i '^GDAL==' requirements.txt > requirements.docker.txt \
+ && pip install --no-cache-dir --no-build-isolation -r requirements.docker.txt \
+ && rm requirements.docker.txt \
  && pip install gunicorn
 
 # Copier le code de l'application
