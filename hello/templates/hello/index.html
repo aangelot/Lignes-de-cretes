@@ -149,18 +149,11 @@
       <form id="trek-form" method="get" class="text-form">
         <p>
           Je souhaite partir dans  
-          <select id="massif" name="massif">
-            <option value="Aravis">les Aravis</option>
-            <option value="Massif des Bauges">les Bauges</option>
-            <option value="Belledonne">Belledonne</option>
-            <option value="Chartreuse">la Chartreuse</option>
-            <option value="Ecrins">les Écrins</option>
-            <option value="Haut Jura">le Haut Jura</option>
-            <option value="Morvan">le Morvan</option>
-            <option value="Queyras">le Queyras</option>
-            <option value="Taillefer">le Taillefer</option>
-            <option value="Vanoise">la Vanoise</option>
-            <option value="Vercors">le Vercors</option>
+          <select id="massif" name="massif" required>
+            <option value="" selected>choisir massif</option>
+            {% for massif in active_massifs %}
+              <option value="{{ massif.value }}">{{ massif.label }}</option>
+            {% endfor %}
           </select>
           depuis la gare de :
           <input
@@ -254,6 +247,7 @@
 <div id="path-data" data-coords='{{ path|escapejs }}'></div>
 {% endif %}
 
+<script src="{% static 'hello/massif-selector.js' %}"></script>
 <script src="{% static 'hello/index.js' %}"></script>
 <script src="{% static 'hello/poi-loader.js' %}" defer></script>
 </body>

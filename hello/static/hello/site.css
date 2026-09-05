@@ -657,3 +657,68 @@ a:hover {
 .poi-tag:hover {
   background: #ef8409;
 }
+
+/* === Sélection du massif sur la carte === */
+.massif-shape {
+  cursor: pointer;
+}
+
+/* Nom du massif choisi, affiché en permanence au centre de son contour */
+.massif-selected-label {
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  color: #fff;
+  font-size: 1.3em;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  /* contour sombre : lisible aussi bien sur le remplissage orange que sur la carte */
+  text-shadow: 0 0 3px #19191e, 0 0 6px #19191e, 0 0 10px #19191e, 0 1px 2px #19191e;
+  pointer-events: none;
+}
+
+/* Le champ POI n'a de sens qu'une fois le massif choisi */
+#poi-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.massif-popup-wrapper .leaflet-popup-content-wrapper,
+.massif-popup-wrapper .leaflet-popup-tip {
+  background: #1c1c21;
+  color: #fff;
+  border: 1px solid #333;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.massif-popup-wrapper .leaflet-popup-content {
+  margin: 0.7em 0.9em;
+}
+
+.massif-popup {
+  display: flex;
+  align-items: center;
+  gap: 0.8em;
+  white-space: nowrap;
+}
+
+.massif-popup strong {
+  font-size: 1em;
+}
+
+.massif-popup button {
+  background-color: #ef8409;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.35em 0.8em;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9em;
+  transition: background-color 0.3s;
+}
+
+.massif-popup button:hover {
+  background-color: #d77307;
+}

@@ -31,6 +31,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- data loading ---
   async function loadPOIs(massif) {
+    // Aucun massif choisi : le champ n'a rien à proposer
+    if (!massif) {
+      allPOIs = [];
+      filteredPOIs = [];
+      closeMenu();
+      input.disabled = true;
+      input.placeholder = "Choisissez d’abord un massif";
+      return;
+    }
+
+    input.disabled = false;
+    input.placeholder = "Rechercher un point d’intérêt...";
+
     const slug = slugify(massif);
     const url = `/data/output/${slug}_poi_scores.geojson`;
 

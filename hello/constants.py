@@ -30,6 +30,26 @@ HIKE_DISTANCE_CONSUMPTION_THRESHOLD = 0.9
 WALK_SECONDS_PER_DAY = 10 * 3600
 MIN_DISTANCE_DAY1 = 5_000
 
+# Massifs ouverts sur Lignes de crêtes.
+# `value` est la clé métier : elle est envoyée au back et sert de base au slug des
+# fichiers data/output (ex. "Massif des Bauges" -> massif_des_bauges_poi_scores.geojson).
+# `label` est le libellé affiché dans le formulaire.
+# Ajouter un massif ici suffit : le formulaire et les contours affichés sur la carte
+# sont générés à partir de cette liste.
+ACTIVE_MASSIFS = [
+    {"value": "Aravis", "label": "les Aravis"},
+    {"value": "Massif des Bauges", "label": "les Bauges"},
+    {"value": "Belledonne", "label": "Belledonne"},
+    {"value": "Chartreuse", "label": "la Chartreuse"},
+    {"value": "Ecrins", "label": "les Écrins"},
+    {"value": "Haut Jura", "label": "le Haut Jura"},
+    {"value": "Morvan", "label": "le Morvan"},
+    {"value": "Queyras", "label": "le Queyras"},
+    {"value": "Taillefer", "label": "le Taillefer"},
+    {"value": "Vanoise", "label": "la Vanoise"},
+    {"value": "Vercors", "label": "le Vercors"},
+]
+
 # Options du paramètre randomness du front
 RANDOMNESS_OPTIONS = [
     {"value": "0", "label": "🧭 Itinéraire classique (les bases)"},

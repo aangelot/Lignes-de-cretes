@@ -10,15 +10,30 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from hello.routing.trouver_chemin import compute_best_route
 from hello.routing.domain.progress import initialize_route_status, update_route_status, get_route_status
-from hello.constants import RANDOMNESS_OPTIONS, RANDOMNESS_DEFAULT
+from hello.constants import ACTIVE_MASSIFS, RANDOMNESS_OPTIONS, RANDOMNESS_DEFAULT
+from hello.massifs import get_active_massifs_geojson
 
 
 def index(request):
     return render(request, "hello/index.html", {
         "randomness_options": RANDOMNESS_OPTIONS,
         "randomness_default": RANDOMNESS_DEFAULT,
+        "active_massifs": ACTIVE_MASSIFS,
         "carto_api_key": settings.CARTO_API_KEY,
     })
+
+
+def massifs_actifs(request):
+    """Retourne les contours simplifiés des massifs ouverts, pour la carte."""
+    if request.method != "GET":
+        return JsonResponse({"error": "Méthode non autorisée"}, status=405)
+
+    try:
+        return JsonResponse(get_active_massifs_geojson())
+    except Exception as e:
+        print("Erreur massifs_actifs:", e)
+        print(traceback.format_exc())
+        return JsonResponse({"error": str(e)}, status=500)
 
 def _log_get_route_call(massif, address, level, randomness_str, departure_datetime, return_datetime, transit_priority, pois, result):
     """Enregistre l'appel à get_route dans un fichier CSV."""

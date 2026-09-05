@@ -157,6 +157,11 @@ document.addEventListener('DOMContentLoaded', () => {
     map.zoomControl.remove();
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
+    // Contours des massifs : sélection du massif directement sur la carte
+    if (typeof window.initMassifSelector === 'function') {
+        window.initMassifSelector(map);
+    }
+
 
     // === Variables globales ===
     let currentLayer = null;
@@ -220,6 +225,18 @@ document.addEventListener('DOMContentLoaded', () => {
     depInput.addEventListener('input', validateDates);
     retInput.addEventListener('input', validateDates);
 
+    /**
+     * Retire le contrôle d'élévation ET son repère d'altitude sur le tracé.
+     * `remove()` ne détache que le graphe : le repère vit dans son propre pane
+     * et ne part qu'avec `clear()`, sans quoi il reste collé à la carte.
+     */
+    function destroyElevationControl() {
+        if (!controlElevation) return;
+        if (typeof controlElevation.clear === 'function') controlElevation.clear();
+        controlElevation.remove();
+        controlElevation = null;
+    }
+
     // Crée le control d'élévation dans la modale Résumé
     function initElevationInSummary() {
         const summaryModal = document.getElementById('modal-summary');
@@ -228,10 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!elevDiv || !legendDiv) return;
 
         // Supprimer l'ancien contrôle si existant
-        if (controlElevation) {
-            controlElevation.remove();
-            controlElevation = null;
-        }
+        destroyElevationControl();
 
         // Initialisation du contrôle
         controlElevation = L.control.elevation({
@@ -296,6 +310,42 @@ document.addEventListener('DOMContentLoaded', () => {
         if (arrowDecorator) { map.removeLayer(arrowDecorator); arrowDecorator = null; }
         if (poiLayer) { map.removeLayer(poiLayer); poiLayer = null; }
     }
+
+    /**
+     * Un trek appartient à son massif : en changer efface le résultat précédent,
+     * comme cela vide déjà les points d'intérêt sélectionnés.
+     */
+    function resetResults() {
+        clearMapOverlays();
+
+        // On repart du choix du massif : les contours redeviennent utiles.
+        // Un simple recalcul dans le même massif, lui, ne les fait pas revenir.
+        if (window.massifOverlay) window.massifOverlay.show();
+
+        destroyElevationControl();
+        lastGeneratedFilename = null;
+
+        // Les panneaux de résultat sont reconstruits à chaque calcul (cf. renderRoute)
+        ['go', 'summary', 'back'].forEach(type => {
+            const modal = document.getElementById('modal-' + type);
+            if (modal) {
+                modal.innerHTML = '';
+                modal.classList.add('collapsed');
+            }
+        });
+
+        const formModal = document.getElementById('form-modal');
+        if (formModal) {
+            formModal.classList.remove('collapsed');
+            formModal.classList.add('expanded');
+        }
+
+        setRouteStatus('');
+    }
+
+    document.getElementById('massif').addEventListener('change', () => {
+        if (currentLayer) resetResults();
+    });
 
 
     // === Fonction affichage transit ===
@@ -429,6 +479,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         lastGeneratedFilename = data.generated_filename || null;
+
+        // Le tracé prend la carte : on efface les contours des massifs
+        if (window.massifOverlay) window.massifOverlay.hide();
 
         currentLayer = L.geoJSON(data, { style: { color: '#ef8409', weight: 4, opacity: 0.9 } }).addTo(map);
 
@@ -656,7 +709,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let pollTimer = null;
+        // Le premier appel a lieu avant la création de l'intervalle : sans ce drapeau,
+        // un calcul déjà terminé à ce moment-là relancerait le suivi indéfiniment,
+        // et le tracé serait redessiné toutes les 2 s.
+        let pollFinished = false;
         const stopPolling = () => {
+            pollFinished = true;
             if (pollTimer) {
                 clearInterval(pollTimer);
                 pollTimer = null;
@@ -699,7 +757,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         await pollStatus();
-        pollTimer = setInterval(pollStatus, 2000);
+        if (!pollFinished) pollTimer = setInterval(pollStatus, 2000);
     });
 
 });
