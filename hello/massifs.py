@@ -1,12 +1,19 @@
 """Contours simplifiés des massifs actifs, pour l'affichage et la sélection sur la carte.
 
-`data/input/massifs.geojson` pèse plusieurs Mo et contient tous les PNR de France :
-impossible de l'envoyer au navigateur. On en extrait donc les seuls massifs de
-`ACTIVE_MASSIFS`, avec une géométrie simplifiée, dans un fichier de cache.
+`data/input/massifs.geojson` pèse plusieurs Mo, contient tous les PNR de France et
+n'est pas déployé en production (le dossier `data/` est exclu de l'image Docker et
+fourni par un volume). On en extrait donc les seuls massifs de `ACTIVE_MASSIFS`, avec
+une géométrie simplifiée, dans un fichier léger **versionné avec le code** :
+`hello/data/massifs_actifs.geojson`.
 
-Ce cache est régénéré automatiquement dès que `ACTIVE_MASSIFS` change : sa signature
-est stockée dans le fichier produit et comparée à chaque appel. Ajouter un massif dans
-`hello/constants.py` suffit donc, rien n'est à relancer à la main.
+Ce fichier est régénéré automatiquement en développement dès que `ACTIVE_MASSIFS`
+change : sa signature est comparée à la liste courante à chaque appel. Il fait donc
+partie du changement — quand on ouvre un nouveau massif, on commite `constants.py`
+et ce fichier ensemble.
+
+En production la source n'existe pas : la signature correspond déjà et le fichier est
+servi tel quel. Si elle ne correspondait pas (constante modifiée sans régénération),
+on sert les contours disponibles restreints aux massifs ouverts plutôt que d'échouer.
 """
 
 import hashlib
@@ -26,15 +33,17 @@ from hello.data_preparation.utils import normalize_label
 SIMPLIFY_TOLERANCE_DEG = 0.001
 
 SOURCE_FILENAME = os.path.join("data", "input", "massifs.geojson")
-CACHE_FILENAME = os.path.join("data", "output", "massifs_actifs.geojson")                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+CACHE_FILENAME = os.path.join("hello", "data", "massifs_actifs.geojson")
 
 
 def _source_path():
+    """Source volumineuse, présente uniquement en développement."""
     return os.path.join(settings.BASE_DIR, SOURCE_FILENAME)
 
 
 def _cache_path():
-    return os.path.join(settings.BASE_DIR, CACHE_FILENAME)
+    """Fichier léger versionné, livré avec le code."""
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "massifs_actifs.geojson")
 
 
 def _signature():
@@ -94,7 +103,7 @@ def _build_geojson():
 
 
 def _write_cache(data):
-    """Écrit le cache de façon atomique (plusieurs requêtes peuvent le régénérer)."""
+    """Écrit le fichier de façon atomique (plusieurs requêtes peuvent le régénérer)."""
     path = _cache_path()
     os.makedirs(os.path.dirname(path), exist_ok=True)
 
@@ -102,6 +111,9 @@ def _write_cache(data):
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             json.dump(data, fh, ensure_ascii=False)
+            fh.write("\n")
+        # mkstemp crée en 0600 : ce fichier est versionné et embarqué dans l'image
+        os.chmod(tmp_path, 0o644)
         os.replace(tmp_path, path)
     except Exception:
         if os.path.exists(tmp_path):
@@ -109,18 +121,52 @@ def _write_cache(data):
         raise
 
 
+def _read_cache():
+    try:
+        with open(_cache_path(), "r", encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _restricted_to_active(cached):
+    """Contours du fichier versionné restreints aux massifs actuellement ouverts."""
+    by_value = {
+        f.get("properties", {}).get("value"): f for f in cached.get("features", [])
+    }
+    features, missing = [], []
+    for massif in ACTIVE_MASSIFS:
+        feature = by_value.get(massif["value"])
+        if feature:
+            features.append(feature)
+        else:
+            missing.append(massif["value"])
+    return features, missing
+
+
 def get_active_massifs_geojson():
-    """Retourne le GeoJSON des massifs actifs, en le générant si le cache est périmé."""
-    path = _cache_path()
+    """Retourne le GeoJSON des massifs actifs, en le régénérant si besoin."""
+    cached = _read_cache()
+    if cached and cached.get("signature") == _signature():
+        return cached
 
     try:
-        with open(path, "r", encoding="utf-8") as fh:
-            cached = json.load(fh)
-        if cached.get("signature") == _signature():
-            return cached
-    except (OSError, json.JSONDecodeError):
-        pass
+        data = _build_geojson()
+    except OSError as exc:
+        # Production : la source volumineuse n'est pas déployée. On sert ce dont on
+        # dispose plutôt que d'échouer — la carte perd au pire un contour, jamais le
+        # formulaire. Un massif ouvert sans contour signale un fichier à régénérer.
+        if cached is None:
+            print(f"⚠️ Contours des massifs indisponibles : {exc}")
+            return {"type": "FeatureCollection", "features": []}
 
-    data = _build_geojson()
+        features, missing = _restricted_to_active(cached)
+        if missing:
+            print(
+                f"⚠️ {CACHE_FILENAME} est périmé : aucun contour pour "
+                f"{', '.join(missing)}. Régénérer et commiter le fichier."
+            )
+        return {"type": "FeatureCollection", "features": features}
+
     _write_cache(data)
     return data
