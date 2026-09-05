@@ -1,0 +1,32 @@
+# Secrets : fournis au conteneur par env_file (docker-compose), jamais dans l'image
+.env
+.env-example
+
+# Environnement virtuel de l'hôte : les dépendances sont réinstallées dans l'image
+venv/
+.venv/
+
+# Historique git
+.git/
+.gitignore
+.github/
+
+# Données volumineuses : montées via ./data:/app/data
+# (hello/static/hello/data/ est conservé, il est servi en statique)
+data/
+
+# Artefacts Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Éditeurs / outillage local
+.vscode/
+.claude/
+*.code-workspace
+
+# Statiques collectés au démarrage par entrypoint.sh
+staticfiles/
