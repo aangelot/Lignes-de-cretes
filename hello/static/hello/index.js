@@ -130,9 +130,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-    const osm = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    // Clé CARTO injectée par le template (data-carto-key sur #map)
+    const cartoKey = document.getElementById('map').dataset.cartoKey || '';
+    const cartoUrl = 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
+        + (cartoKey ? '?key=' + cartoKey : '');
+
+    const osm = L.tileLayer(cartoUrl, {
         maxZoom: 19,
-        subdomains: 'abcd',
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
     }).addTo(map);
 

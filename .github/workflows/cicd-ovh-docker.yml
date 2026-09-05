@@ -42,6 +42,7 @@ jobs:
       #     DB_PASSWORD=${{ secrets.DB_PASSWORD }}
       #     DATABASE_HOST=${{ secrets.DATABASE_HOST }}
       #     GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
+      #     CARTO_API_KEY=${{ secrets.CARTO_API_KEY }}
       #     EOF
 
       # - name: Django system checks
@@ -96,6 +97,7 @@ jobs:
             DB_PASSWORD=${{ secrets.DB_PASSWORD }}
             DATABASE_HOST=${{ secrets.DATABASE_HOST }}
             GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
+            CARTO_API_KEY=${{ secrets.CARTO_API_KEY }}
             EOF
 
             # Build & restart des conteneurs

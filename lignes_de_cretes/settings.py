@@ -27,6 +27,9 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['0.0.0.0', 'localhost', '127.0.0.1',  '37.59.105.122', '2001:41d0:305:2100::1b3b', 'lignes-de-cretes.fr', 'www.lignes-de-cretes.fr']
 
+# Clé des fonds de carte CARTO, exposée au navigateur (voir README) : non secrète.
+CARTO_API_KEY = config('CARTO_API_KEY', default='')
+
 # Application definition
 
 INSTALLED_APPS = [

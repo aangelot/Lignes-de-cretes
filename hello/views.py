@@ -17,6 +17,7 @@ def index(request):
     return render(request, "hello/index.html", {
         "randomness_options": RANDOMNESS_OPTIONS,
         "randomness_default": RANDOMNESS_DEFAULT,
+        "carto_api_key": settings.CARTO_API_KEY,
     })
 
 def _log_get_route_call(massif, address, level, randomness_str, departure_datetime, return_datetime, transit_priority, pois, result):
