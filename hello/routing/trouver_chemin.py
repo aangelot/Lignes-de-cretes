@@ -115,9 +115,9 @@ def compute_best_route(
     if not path:
         smoothed_elevations, total_ascent, elevation_failed = [], 0, True
     else:
-        elevations = get_elevations(path)
+        elevations = get_elevations(path, G)
         elevation_failed = all(ele == 0 for ele in elevations)
-        smoothed_elevations = smooth_elevations(elevations, window=9)
+        smoothed_elevations = smooth_elevations(elevations, path)
         total_ascent = compute_total_ascent(smoothed_elevations)
 
     # Etape 4 : Construction du GeoJSON final et sauvegarde

@@ -122,11 +122,12 @@ def pipeline_poi(massif_name, script_dir, start_step=0):
             raise
 
 def pipeline_graphe(massif_name, script_dir, start_step=0):
-    """Pipeline graphe : étapes 0..2 (Graphe_0, Graphe_1_POI_fusion, Graphe_2_fichiers_finaux)."""
+    """Pipeline graphe : étapes 0..3 (Graphe_0, Graphe_1_POI_fusion, Graphe_2_fichiers_finaux, Graphe_3_altitudes)."""
     steps = [
         ("Graphe_0.py", [massif_name]),
         ("Graphe_1_POI_fusion.py", [massif_name]),
         ("Graphe_2_fichiers_finaux.py", [massif_name]),
+        ("Graphe_3_altitudes.py", [massif_name]),
     ]
 
     for i, (script_name, args) in enumerate(steps):
@@ -184,6 +185,7 @@ def main():
         print("0. Graphe_0.py")
         print("1. Graphe_1_POI_fusion.py")
         print("2. Graphe_2_fichiers_finaux.py")
+        print("3. Graphe_3_altitudes.py")
         start_input = input("À partir de quelle étape voulez-vous reprendre ? (numéro, défaut=0) : ").strip()
         start_step = int(start_input) if start_input.isdigit() else 0
         pipeline_graphe(massif_name, script_dir, start_step=start_step)
@@ -199,7 +201,7 @@ def main():
         start_input = input("POI : étape de départ (numéro, défaut=0) : ").strip()
         start_poi = int(start_input) if start_input.isdigit() else 0
 
-        print("\n[Graphe] étapes 0..2 (défaut 0)")
+        print("\n[Graphe] étapes 0..3 (défaut 0)")
         start_input = input("Graphe : étape de départ (numéro, défaut=0) : ").strip()
         start_graphe = int(start_input) if start_input.isdigit() else 0
 
