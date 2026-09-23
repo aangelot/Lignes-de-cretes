@@ -121,13 +121,16 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // === Initialisation de la carte ===
-    const map = L.map('map');
-    const bounds = [
-    [45.95, 4.60],
-    [44.95, 6.90]
+    // zoomSnap fractionnaire : par défaut Leaflet arrondit le zoom d'un fitBounds à
+    // l'entier inférieur, ce qui fait perdre jusqu'à un facteur 2 sur le cadrage.
+    const map = L.map('map', { zoomSnap: 0.25 });
+    // Cadrage d'attente, le temps que /massifs/ réponde : massif-selector.js recadre
+    // ensuite sur l'emprise réelle des massifs ouverts (cf. window.massifOverlay.fitAll).
+    const INITIAL_BOUNDS = [
+        [45.95, 4.60],
+        [44.95, 6.90]
     ];
-    map.fitBounds(bounds);
-
+    map.fitBounds(INITIAL_BOUNDS);
 
 
     // Clé CARTO injectée par le template (data-carto-key sur #map)

@@ -5,6 +5,10 @@
  * avec un bouton « Sélectionner », et tient le champ #massif du formulaire
  * synchronisé avec la carte dans les deux sens.
  *
+ * C'est aussi cette couche qui donne le cadrage initial de la carte : tant qu'aucun
+ * massif n'est choisi, la vue englobe tous les massifs ouverts, sans coordonnées
+ * codées en dur à mettre à jour quand on en ouvre un nouveau.
+ *
  * Expose window.massifOverlay pour qu'index.js puisse masquer la couche une fois
  * le trek calculé et la réafficher quand on repart d'une carte vierge.
  */
@@ -24,6 +28,10 @@
   const STYLE_DIMMED = { weight: 1.5, opacity: 0.5, fillOpacity: 0.04 };
 
   const FLY_OPTIONS = { padding: [40, 40], duration: 1.2, maxZoom: 12 };
+  // Vue d'ensemble : marge minimale autour des contours, et plafond de zoom qui
+  // garde un contexte lisible s'il n'y a qu'un seul massif ouvert.
+  const OVERVIEW_MARGIN = 30;
+  const OVERVIEW_MAX_ZOOM = 9;
 
   window.initMassifSelector = function initMassifSelector(map) {
     const select = document.getElementById('massif');
@@ -73,6 +81,45 @@
     function flyToMassif(value) {
       const layer = layersByValue.get(value);
       if (layer) map.flyToBounds(layer.getBounds(), FLY_OPTIONS);
+    }
+
+    /**
+     * Options de cadrage d'ensemble. Le formulaire flotte au-dessus de la carte : on
+     * lui réserve sa place, sinon les massifs se cadrent sur toute la largeur et une
+     * partie d'entre eux finit sous le panneau. Il borde la carte à gauche en grand
+     * écran et remonte du bas en tiroir sur mobile, d'où la mesure plutôt qu'une
+     * constante. La réserve est plafonnée pour qu'il reste toujours de la place.
+     */
+    function overviewOptions() {
+      const topLeft = [OVERVIEW_MARGIN, OVERVIEW_MARGIN];
+      const bottomRight = [OVERVIEW_MARGIN, OVERVIEW_MARGIN];
+      const panel = document.getElementById('modals-container');
+      const panelRect = panel && panel.getBoundingClientRect();
+      const mapRect = map.getContainer().getBoundingClientRect();
+
+      if (panelRect && panelRect.width && panelRect.height) {
+        if (panelRect.width < mapRect.width / 2) {
+          topLeft[0] += Math.min(panelRect.right - mapRect.left, mapRect.width * 0.45);
+        } else {
+          bottomRight[1] += Math.min(mapRect.bottom - panelRect.top, mapRect.height * 0.45);
+        }
+      }
+
+      return {
+        paddingTopLeft: topLeft,
+        paddingBottomRight: bottomRight,
+        maxZoom: OVERVIEW_MAX_ZOOM,
+      };
+    }
+
+    /** Cadre la carte sur l'ensemble des massifs ouverts. */
+    function fitAllMassifs(animate) {
+      if (!massifLayer) return;
+      const bounds = massifLayer.getBounds();
+      if (!bounds.isValid()) return;
+      const options = overviewOptions();
+      if (animate) map.flyToBounds(bounds, Object.assign({ duration: 1.2 }, options));
+      else map.fitBounds(bounds, options);
     }
 
     /** Renseigne le formulaire depuis la carte : le `change` propage aux autres modules. */
@@ -128,6 +175,7 @@
     select.addEventListener('change', () => {
       refreshStyles();
       if (select.value) flyToMassif(select.value);
+      else fitAllMassifs(true);
     });
 
     window.massifOverlay = {
@@ -135,6 +183,9 @@
         visible = true;
         if (massifLayer && !map.hasLayer(massifLayer)) massifLayer.addTo(map);
         refreshSelectedLabel();
+      },
+      fitAll() {
+        fitAllMassifs(true);
       },
       hide() {
         visible = false;
@@ -154,6 +205,7 @@
         if (visible) massifLayer.addTo(map);
         refreshStyles();
         if (select.value) flyToMassif(select.value);
+        else fitAllMassifs();
       })
       .catch((err) => {
         // Sans contours, le formulaire reste pleinement utilisable.
