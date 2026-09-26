@@ -1,0 +1,312 @@
+/* ===== Mode manuel (cf. manual-mode.js) ===== */
+
+/* Un seul mode visible à la fois */
+#trek-form.mode-manual .auto-only { display: none; }
+#trek-form:not(.mode-manual) .manual-only { display: none; }
+
+/* Sélecteur Automatique / Manuel */
+.mode-switch {
+  display: flex;
+  background: #2b2b31;
+  border-radius: 8px;
+  padding: 3px;
+  gap: 3px;
+}
+
+.mode-switch label {
+  flex: 1;
+  text-align: center;
+  padding: 0.4em 0.5em;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #ccc;
+  font-size: 0.95em;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.mode-switch input { position: absolute; opacity: 0; pointer-events: none; }
+
+.mode-switch label:has(input:checked) {
+  background: #ef8409;
+  color: #fff;
+  font-weight: 600;
+}
+
+.mode-switch label:has(input:focus-visible) { outline: 2px solid #fff; }
+
+/* Étapes */
+.manual-stepper {
+  list-style: none;
+  display: flex;
+  gap: 0.4em;
+  padding: 0;
+  margin: 0 0 0.8em;
+}
+
+.manual-stepper li {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  font-size: 0.85em;
+  color: #888;
+  padding-bottom: 0.4em;
+  border-bottom: 2px solid #333;
+}
+
+.manual-stepper li span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5em;
+  height: 1.5em;
+  border-radius: 50%;
+  background: #333;
+  color: #ccc;
+  font-size: 0.85em;
+}
+
+.manual-stepper li.is-active { color: #fff; border-color: #ef8409; }
+.manual-stepper li.is-active span { background: #ef8409; color: #fff; }
+.manual-stepper li.is-done { color: #ccc; border-color: #6b6b73; }
+.manual-stepper li.is-done span { background: #6b6b73; color: #fff; }
+
+.manual-step { font-size: 0.95em; }
+
+.manual-hint {
+  color: #ccc;
+  margin: 0.6em 0;
+}
+
+/* Même allure que le bouton « Trouver mon trek » (.text-form button) */
+#manual-panel .manual-primary { width: 100%; padding: 0.7em 1em; }
+
+#manual-panel .manual-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background-color: #ef8409;
+}
+
+#manual-panel .manual-link {
+  background: none;
+  color: #ef8409;
+  padding: 0;
+  font-size: 0.9em;
+  font-weight: 400;
+  text-decoration: underline;
+  width: auto !important;
+}
+
+#manual-panel .manual-link:hover { background: none; color: #fff; }
+
+.manual-done {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2em;
+  background: #2b2b31;
+  border-radius: 8px;
+  padding: 0.6em 0.8em;
+}
+
+.manual-done span { color: #ccc; font-size: 0.9em; }
+
+.manual-error {
+  color: #ff6b6b;
+  margin-top: 0.6em;
+  font-size: 0.9em;
+}
+
+.manual-warning {
+  color: #ffb74d;
+  border: 1px solid rgba(255, 183, 77, 0.35);
+  background: rgba(255, 183, 77, 0.08);
+  border-radius: 6px;
+  padding: 0.4em 0.7em;
+  margin: 0.6em 0;
+  font-size: 0.9em;
+}
+
+.manual-warning p { margin: 0.2em 0; }
+
+/* Légende du dégradé de durées */
+.manual-legend { margin: 0.4em 0 0.6em; }
+
+.manual-legend-title {
+  font-size: 0.9em;
+  color: #ccc;
+  margin-bottom: 0.4em;
+}
+
+.manual-legend-title strong { color: #fff; }
+
+.manual-legend-bar {
+  height: 10px;
+  border-radius: 5px;
+  border: 1px solid #333;
+}
+
+.manual-legend-ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.3em;
+  font-size: 0.75em;
+  color: #999;
+}
+
+.manual-legend-ticks span {
+  display: flex;
+  flex-direction: column;
+}
+
+.manual-legend-ticks span:nth-child(2) { align-items: center; }
+.manual-legend-ticks span:last-child { align-items: flex-end; }
+
+.manual-legend-ticks b {
+  color: #fff;
+  font-size: 1.2em;
+  font-weight: 600;
+}
+
+.manual-legend-note {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  margin-top: 0.4em;
+  font-size: 0.8em;
+  color: #999;
+}
+
+.manual-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid #fff;
+  flex-shrink: 0;
+}
+
+/* Popup d'un arrêt sur la carte */
+.manual-popup-wrapper .leaflet-popup-content-wrapper,
+.manual-popup-wrapper .leaflet-popup-tip {
+  background: #1c1c21;
+  color: #fff;
+  border: 1px solid #333;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.manual-popup-wrapper .leaflet-popup-content { margin: 0.7em 0.9em; }
+
+.manual-stop-popup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+  min-width: 11em;
+}
+
+.manual-stop-popup button {
+  margin-top: 0.3em;
+  background-color: #ef8409;
+  color: #fff;
+  border-radius: 6px;
+  padding: 0.4em 0.8em;
+  font-weight: 600;
+  font-size: 0.9em;
+}
+
+.manual-stop-popup button:hover { background-color: #d77307; }
+.manual-stop-popup button:disabled { opacity: 0.6; cursor: wait; }
+
+.manual-stop-popup-error { color: #ff6b6b; font-size: 0.9em; }
+
+.manual-popup-muted { color: #999; font-size: 0.85em; }
+
+/* ===== Étape 2 : tracé ===== */
+.manual-subtitle {
+  margin: 1em 0 0.5em;
+  font-size: 1em;
+  color: #fff;
+}
+
+.manual-counter {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4em;
+}
+
+.manual-counter div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #2b2b31;
+  border-radius: 8px;
+  padding: 0.5em 0.3em;
+}
+
+.manual-counter b {
+  font-size: 1.15em;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+.manual-counter span { font-size: 0.75em; color: #999; }
+
+.manual-poi-list {
+  margin: 0.6em 0 0;
+  padding-left: 1.6em;
+  font-size: 0.9em;
+  color: #ddd;
+  max-height: 9em;
+  overflow-y: auto;
+}
+
+.manual-poi-list li { margin: 0.15em 0; }
+
+.manual-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1em;
+  margin: 0.2em 0 0.8em;
+}
+
+#manual-panel .manual-link:disabled { opacity: 0.4; cursor: wait; }
+
+.manual-hint-small { font-size: 0.8em; color: #999; margin-top: 0.4em; }
+
+/* POI déjà dans le tracé : pastille numérotée à la place de l'icône */
+.manual-poi-badge {
+  background: none;
+  border: none;
+}
+
+.manual-poi-badge span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  border-radius: 13px;
+  background: #ef8409;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  white-space: nowrap;
+}
+
+/* ===== Étape 3 : retour ===== */
+.manual-popup-walk {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15em;
+  font-size: 0.9em;
+  border-top: 1px solid #333;
+  padding-top: 0.35em;
+  margin-top: 0.1em;
+}
+
+.manual-step .manual-done + .manual-subtitle,
+.manual-step .manual-actions + .manual-done { margin-top: 0.8em; }

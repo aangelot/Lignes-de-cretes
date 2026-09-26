@@ -763,6 +763,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!pollFinished) pollTimer = setInterval(pollStatus, 2000);
     });
 
+    // Briques partagées avec le mode manuel (manual-mode.js)
+    window.lignesDeCretes = {
+        map,
+        afficherTransit,
+        addToggleExclusive,
+        renderRoute,
+        resetResults,
+    };
+
 });
 
 

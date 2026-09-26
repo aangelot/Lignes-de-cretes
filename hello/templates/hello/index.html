@@ -23,6 +23,7 @@
     <!-- Styles principaux -->
     <link rel="stylesheet" type="text/css" href="{% static 'hello/site.css' %}" />
     <link rel="stylesheet" type="text/css" href="{% static 'hello/mobile.css' %}" />
+    <link rel="stylesheet" type="text/css" href="{% static 'hello/manual-mode.css' %}" />
     <link rel="icon" href="{% static 'hello/favicon.png' %}" type="image/x-icon">
     <!-- Microsoft Clarity-->
     <script type="text/javascript">
@@ -147,6 +148,13 @@
     </div>
       <div class="modal-body">
       <form id="trek-form" method="get" class="text-form">
+        <div class="mode-switch" role="radiogroup" aria-label="Mode de calcul">
+          <!-- autocomplete="off" : un trek manuel ne survit pas au rechargement,
+               le navigateur ne doit pas restaurer le mode choisi -->
+          <label><input type="radio" name="mode" value="auto" checked autocomplete="off"> Automatique</label>
+          <label><input type="radio" name="mode" value="manual" autocomplete="off"> Manuel</label>
+        </div>
+
         <p>
           Je souhaite partir dans  
           <select id="massif" name="massif" required>
@@ -177,6 +185,8 @@
         </p>
         <div id="date-error" style="color: #ff6b6b; margin-top: 0.5em;"></div>
 
+        <!-- Paramètres propres au mode automatique -->
+        <div class="auto-only">
         <p>
           Mon niveau de marche est :
           <select id="level" name="level">
@@ -226,6 +236,10 @@
         <p style="text-align: center; margin-top: 1em;">
           <button type="submit" id="submit-btn">Trouver mon trek</button>
         </p>
+        </div>
+
+        <!-- Étapes du mode manuel (cf. manual-mode.js) -->
+        <div id="manual-panel" class="manual-only"></div>
       </form>
     </div>
   </div>
@@ -249,6 +263,7 @@
 
 <script src="{% static 'hello/massif-selector.js' %}"></script>
 <script src="{% static 'hello/index.js' %}"></script>
+<script src="{% static 'hello/manual-mode.js' %}"></script>
 <script src="{% static 'hello/poi-loader.js' %}" defer></script>
 </body>
 </html>

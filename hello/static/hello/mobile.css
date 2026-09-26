@@ -206,6 +206,19 @@
     margin-top: -10px;
   }
 
+  /* Vides, elles ne doivent pas remonter : sinon le conteneur, calé en bas
+     d'écran, est plus court que le formulaire et le bas de celui-ci sort de l'écran. */
+  #modal-summary:empty,
+  #modal-go:empty,
+  #modal-back:empty {
+    margin-top: 0;
+  }
+
+  /* Marge de sécurité des écrans à encoche / barre d'accueil */
+  #form-modal .modal-body {
+    padding-bottom: calc(1.6rem + env(safe-area-inset-bottom, 0px));
+  }
+
   /* ===== GPX BUTTON ===== */
   .modal-body .gpx-btn,
   #gpx-download-btn {
