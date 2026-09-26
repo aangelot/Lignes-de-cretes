@@ -1,65 +1,30 @@
 import json
 import os
 from dotenv import load_dotenv
-import requests
-from datetime import datetime, timedelta
 import time
 import sys
-from utils import slugify
+from utils import slugify, haversine_m, transit_duration_minutes_any_hour, DEPARTURE_HOURS
 
-def get_duration_from_api(origin_coords, destination_coords):
-    """Call Google Maps API to get duration in minutes"""
+# Valeur écrite quand aucune durée n'a pu être obtenue (lue comme « inconnue »)
+UNKNOWN_DURATION_MIN = 10000
+
+# En deçà, deux hubs sont la même gare : Google ne renvoie aucun itinéraire en
+# transport pour un trajet nul, la durée est 0.
+SAME_PLACE_MAX_M = 1000
+
+
+def get_duration_from_api(origin_coords, destination_coords, hours=DEPARTURE_HOURS):
+    """Durée en minutes entre deux points [lon, lat], UNKNOWN_DURATION_MIN si inconnue."""
     load_dotenv()
-    API_KEY = os.getenv("GOOGLE_API_KEY")
-    origin = {"latitude": origin_coords[1], "longitude": origin_coords[0]}
-    destination = {"latitude": destination_coords[1], "longitude": destination_coords[0]}
-
-    # Heure de départ : samedi prochain à 4h, en UTC
-    now = datetime.now()
-    days_ahead = (5 - now.weekday()) % 7  # 5 = samedi
-    saturday = now + timedelta(days=days_ahead)
-    departure_time = datetime.combine(
-        saturday.date(), datetime.strptime("04:00", "%H:%M").time()
+    if haversine_m(*origin_coords[:2], *destination_coords[:2]) < SAME_PLACE_MAX_M:
+        return 0
+    duration = transit_duration_minutes_any_hour(
+        {"latitude": origin_coords[1], "longitude": origin_coords[0]},
+        {"latitude": destination_coords[1], "longitude": destination_coords[0]},
+        os.getenv("GOOGLE_API_KEY"),
+        hours,
     )
-    departure_time_utc = departure_time.astimezone().isoformat()
-
-    url = "https://routes.googleapis.com/directions/v2:computeRoutes"
-    headers = {
-        "Content-Type": "application/json",
-        "X-Goog-Api-Key": API_KEY,
-        "X-Goog-FieldMask": "routes.duration"
-    }
-    body = {
-        "origin": {"location": {"latLng": origin}},
-        "destination": {"location": {"latLng": destination}},
-        "travelMode": "TRANSIT",
-        "departureTime": departure_time_utc,
-        "transitPreferences": {
-            "routingPreference": "FEWER_TRANSFERS"
-        }
-    }
-    response = requests.post(url, headers=headers, json=body)
-    if response.status_code == 200:
-        try:
-            duration_str = response.json()["routes"][0]["duration"]
-            if "s" in duration_str:
-                return int(int(duration_str.replace("s", "")) / 60)
-            elif duration_str.startswith("PT"):
-                h, m = 0, 0
-                if "H" in duration_str:
-                    h = int(duration_str.split("PT")[1].split("H")[0])
-                    m_part = duration_str.split("H")[1]
-                    if "M" in m_part:
-                        m = int(m_part.split("M")[0])
-                elif "M" in duration_str:
-                    m = int(duration_str.split("PT")[1].split("M")[0])
-                return h * 60 + m
-        except Exception as e:
-            print(f"Erreur d’analyse JSON: {e}")
-            return 10000
-    else:
-        print(f"Erreur API {response.status_code}: {response.text}")
-        return 10000
+    return UNKNOWN_DURATION_MIN if duration is None else duration
 
 def ajouter_durations_hubs(massif):
 
@@ -89,11 +54,8 @@ def ajouter_durations_hubs(massif):
         for hub_entree in hubs_entree['features']:
             hub_name = hub_entree['properties']['id']
             depart_coords = hub_entree['geometry']['coordinates']
-            # Appel Google Maps API
-            if entree_coords == depart_coords:
-                duration = 0
-            else:
-                duration = get_duration_from_api(depart_coords, entree_coords)
+            # Appel Google Maps API (0 si même gare, cf. SAME_PLACE_MAX_M)
+            duration = get_duration_from_api(depart_coords, entree_coords)
             durations_from_hubs[hub_name] = duration
             print(f"Durée de {hub_name} à entrée {feature['properties']['id']}: {duration} min")
             time.sleep(0.1)  
