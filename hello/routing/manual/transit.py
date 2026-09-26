@@ -118,7 +118,8 @@ def compute_go_for_stop(massif, stop_id, address, departure_time, return_time):
             "id": str(stop_id),
             "lon": lon,
             "lat": lat,
-            "name": last.get("arrivalStop", {}).get("name"),
+            # Nom du fichier d'arrêts ; à défaut, dernier arrêt desservi selon Google
+            "name": stop_info["properties"].get("stop_name") or last.get("arrivalStop", {}).get("name"),
         },
         "warnings": _go_warnings(transit_steps, departure_time, return_time),
     }
@@ -163,7 +164,7 @@ def compute_back_for_stop(massif, stop_id, address, departure_time, return_time)
             "id": str(stop_id),
             "lon": lon,
             "lat": lat,
-            "name": first.get("departureStop", {}).get("name"),
+            "name": stop_info["properties"].get("stop_name") or first.get("departureStop", {}).get("name"),
             "departure_time": first.get("departureTime"),
         },
     }

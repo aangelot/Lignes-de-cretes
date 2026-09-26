@@ -7,6 +7,7 @@ final (renderRoute) et le téléchargement soient identiques.
 from hello.data_preparation.utils import slugify
 from hello.routing.utils.files_tools import build_geojson, save_result
 from .hike import compute_hike, load_poi_geojson
+from .stops import load_stops
 from .transit import compute_back_for_stop
 
 ROUTE_TYPE = "manual"
@@ -34,6 +35,8 @@ def finish_trek(massif, stop_id, poi_ids, return_stop_id, address, departure_tim
         elevation_failed=hike["elevation_failed"],
         return_error_message=None,
         poi_data=load_poi_geojson(massif),
+        start_stop_name=load_stops(massif).get(str(stop_id), {}).get("properties", {}).get("stop_name"),
+        end_stop_name=back["stop"]["name"],
     )
     save_result(result, address, slugify(massif), "manuel", 0, None)
     return {"result": result, "stop": back["stop"]}

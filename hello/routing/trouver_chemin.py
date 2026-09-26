@@ -9,7 +9,7 @@ from hello.data_preparation.utils import slugify
 
 logger = logging.getLogger(__name__)
 
-from .utils.files_tools import load_massif_data, build_geojson, save_result
+from .utils.files_tools import load_massif_data, build_geojson, save_result, nearest_stop_name
 from .domain.transit_go import get_best_transit_route
 from .domain.route_init import initialize_route_parameters
 from .domain.elevation import get_elevations, smooth_elevations, compute_total_ascent
@@ -132,6 +132,8 @@ def compute_best_route(
         elevation_failed=elevation_failed,
         return_error_message=route_data.get("return_error_message"),
         poi_data=poi_data,
+        start_stop_name=nearest_stop_name(path[0] if path else None, stops_data),
+        end_stop_name=nearest_stop_name(path[-1] if path else None, stops_data),
     )
 
     save_result(result, address, massif_clean, level, randomness, status_callback)

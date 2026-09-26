@@ -52,7 +52,7 @@ def get_stops_with_durations(massif, address):
     {
         "hub": nom du hub de départ utilisé comme approximation de la gare,
         "stats": {"min", "median", "max"} en minutes (arrêts estimables seulement),
-        "stops": [{"id", "lon", "lat", "elevation", "duration_min"}, ...]
+        "stops": [{"id", "name", "lon", "lat", "elevation", "duration_min"}, ...]
     }
     `duration_min` vaut None quand le trajet n'est pas estimable.
     """
@@ -75,6 +75,7 @@ def get_stops_with_durations(massif, address):
         lon, lat = info["node"][0], info["node"][1]
         stops.append({
             "id": stop_id,
+            "name": props.get("stop_name"),
             "lon": lon,
             "lat": lat,
             "elevation": props.get("elevation"),

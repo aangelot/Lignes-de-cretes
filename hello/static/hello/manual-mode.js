@@ -236,7 +236,9 @@
     function stopInfoElement(stop) {
       const el = document.createElement('div');
       el.className = 'manual-stop-popup';
-      const lines = [`<strong>${escapeHtml(durationLabel(stop))}</strong>`];
+      const lines = stop.name
+        ? [`<strong>${escapeHtml(stop.name)}</strong>`, escapeHtml(durationLabel(stop))]
+        : [`<strong>${escapeHtml(durationLabel(stop))}</strong>`];
       if (stop.elevation != null) lines.push(`Altitude : ${Math.round(stop.elevation)} m`);
       el.innerHTML = lines.map(l => `<div>${l}</div>`).join('');
       return el;
@@ -301,7 +303,10 @@
       ordered.forEach(stop => {
         stop._color = stop.duration_min == null ? UNKNOWN_COLOR : rampColor(position(stop.duration_min));
         const marker = L.circleMarker([stop.lat, stop.lon], styleFor(stop));
-        marker.bindTooltip(escapeHtml(durationLabel(stop)), { direction: 'top', offset: [0, -6] });
+        marker.bindTooltip(
+          escapeHtml(stop.name ? `${stop.name} · ${durationLabel(stop)}` : durationLabel(stop)),
+          { direction: 'top', offset: [0, -6] }
+        );
         marker.bindPopup(() => stopPopupContent(stop), {
           closeButton: false,
           className: 'manual-popup-wrapper',

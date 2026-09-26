@@ -64,6 +64,10 @@ def process_scores(massif: str):
         print(f"Calcul du trajet vers ({lat}, {lon})...")
         duration_min = get_transit_duration(origin, destination)
         results.append({
+            # Nom et identifiant GTFS venus d'Arrets_0 : sans eux, les fichiers de
+            # sortie n'ont plus aucun moyen de nommer l'arrêt.
+            "stop_name": row.get("stop_name"),
+            "stop_id": row.get("stop_id"),
             "duration": duration_min,
             "geometry": Point(lon, lat),
             # Clé lue par transit_go._compute_and_normalize_durations

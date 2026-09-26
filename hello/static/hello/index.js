@@ -522,6 +522,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (firstDepStop) arriveeLabel = "Arrivée : " + firstDepStop;
         }
 
+        // Noms des fichiers d'arrêts en priorité, ceux de Google sinon
+        if (props.start_stop_name) departLabel = "Départ : " + props.start_stop_name;
+        if (props.end_stop_name) arriveeLabel = "Arrivée : " + props.end_stop_name;
+
         currentLayer.eachLayer(layer => {
             const coords = layer.getLatLngs();
             const startIcon = L.icon({

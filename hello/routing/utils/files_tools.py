@@ -59,11 +59,37 @@ def load_massif_data(massif_name: str) -> dict:
     }
 
 
+# Au-delà, l'extrémité du tracé n'est pas à un arrêt connu : pas de nom
+STOP_NAME_MAX_DISTANCE_M = 1000
+
+
+def nearest_stop_name(coord, stops_data, max_distance_m=STOP_NAME_MAX_DISTANCE_M):
+    """Nom de l'arrêt le plus proche d'un point (lon, lat), None s'il est trop loin."""
+    from hello.routing.utils.geotools import haversine
+
+    if not coord or not stops_data:
+        return None
+    best = min(
+        stops_data.values(),
+        key=lambda s: haversine((coord[1], coord[0]), (s["node"][1], s["node"][0])),
+    )
+    distance = haversine((coord[1], coord[0]), (best["node"][1], best["node"][0]))
+    if distance > max_distance_m:
+        return None
+    return best.get("properties", {}).get("stop_name")
+
+
 def build_geojson(path, dist, route_type, travel_go, travel_return,
-                  total_ascent, elevation_failed, return_error_message, poi_data):
+                  total_ascent, elevation_failed, return_error_message, poi_data,
+                  start_stop_name=None, end_stop_name=None):
     from hello.routing.utils.poi_tools import extract_pois_near_path
 
     extra_props = {}
+    # Noms issus des fichiers d'arrêts ; l'affichage retombe sur ceux de Google
+    if start_stop_name:
+        extra_props["start_stop_name"] = start_stop_name
+    if end_stop_name:
+        extra_props["end_stop_name"] = end_stop_name
     if elevation_failed:
         extra_props["elevation_error"] = True
     if return_error_message:
