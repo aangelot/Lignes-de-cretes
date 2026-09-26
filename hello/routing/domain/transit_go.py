@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 from ..utils.geotools import haversine
 from ..utils.maps_tools import call_maps_routes_api
-from hello.data_preparation.utils import normalize_label
+from hello.data_preparation.utils import normalize_label, MAX_HUB_TO_STOP_MIN
 from hello.constants import (
     TRANSIT_WEIGHTS, TRANSIT_FAILURE_THRESHOLD,
     MINIMAL_WALK_HOURS, MAX_DEPARTURE_DELAY_DAY_HOURS, MAX_DEPARTURE_DELAY_EVENING_HOURS,
@@ -99,6 +99,10 @@ def _compute_and_normalize_durations(stops_data, hubs_entree_features, departure
         elif "duration_min_go" in props and props.get("duration_min_go") is not None:
             dur_hub_entree_to_stop = float(props["duration_min_go"])
         else:
+            dur_hub_entree_to_stop = UNKNOWN_DURATION_MIN
+        # Trop loin du hub pour une journée de rando : durée tenue pour inconnue,
+        # sans quoi ces valeurs (jusqu'à 38 h) écraseraient la normalisation.
+        if dur_hub_entree_to_stop > MAX_HUB_TO_STOP_MIN:
             dur_hub_entree_to_stop = UNKNOWN_DURATION_MIN
 
         total_min = dur_hub_to_hub_entree + dur_hub_entree_to_stop

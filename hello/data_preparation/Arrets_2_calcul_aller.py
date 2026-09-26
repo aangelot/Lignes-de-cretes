@@ -5,7 +5,7 @@ import os
 import time
 from shapely.geometry import Point
 import json
-from utils import slugify, transit_duration_minutes_any_hour
+from utils import slugify, transit_duration_minutes_any_hour, MAX_HUB_TO_STOP_MIN
 import math
 def process_scores(massif: str):
     # Charger la clé API depuis le fichier .env
@@ -71,8 +71,11 @@ def process_scores(massif: str):
         })
         time.sleep(0.1)  # limiter les requêtes
 
-    # Filtrer uniquement ceux avec une durée valide
-    results = [r for r in results if r["duration"] is not None]
+    # Garder les arrêts atteignables dans la journée depuis leur hub d'entrée
+    results = [
+        r for r in results
+        if r["duration"] is not None and r["duration"] <= MAX_HUB_TO_STOP_MIN
+    ]
     output_gdf = gpd.GeoDataFrame(results, crs="EPSG:4326")
 
     # Exporter

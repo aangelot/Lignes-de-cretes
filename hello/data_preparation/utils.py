@@ -24,6 +24,12 @@ def slugify(name: str) -> str:
     return re.sub(r'[^a-z0-9]+', '_', cleaned).strip("_")
 
 
+# Au-delà, un arrêt est trop loin de son hub d'entrée pour une journée de
+# randonnée : le plus souvent il n'est pas desservi le week-end, et Google
+# l'atteint le lundi (jusqu'à 38 h depuis un hub à 20 km).
+MAX_HUB_TO_STOP_MIN = 6 * 60
+
+
 def haversine_m(lon1, lat1, lon2, lat2):
     """Distance à vol d'oiseau en mètres entre deux points (lon, lat)."""
     R = 6371000.0
@@ -91,6 +97,11 @@ def transit_duration_minutes(origin, destination, api_key, departure_iso=None, a
                 if routes:
                     return _parse_duration_minutes(routes[0]["duration"])
                 reason = "aucun itinéraire"
+            elif response.status_code in (400, 401, 403):
+                # Clé absente ou invalide, requête mal formée : relancer n'y changera
+                # rien, et répondre « aucun itinéraire » ferait écrire des 10000 ou
+                # écarter des arrêts à tort. On arrête tout.
+                raise RuntimeError(f"Erreur API {response.status_code} : {response.text[:300]}")
             else:
                 reason = f"erreur API {response.status_code}: {response.text[:200]}"
         except (requests.RequestException, ValueError, KeyError) as e:
