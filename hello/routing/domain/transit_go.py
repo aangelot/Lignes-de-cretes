@@ -61,17 +61,28 @@ def _find_nearest_hub(address_coords, hubs_departs):
     return best[1].get("properties", {}).get("nom") or best[1].get("properties", {}).get("id")
 
 
+# Durée sentinelle : trajet inconnu (hub d'entrée introuvable, ou injoignable
+# depuis le hub de départ). Toute somme qui l'atteint est une durée inconnue.
+UNKNOWN_DURATION_MIN = 10000.0
+
+
 def _compute_and_normalize_durations(stops_data, hubs_entree_features, departure_hub_name):
     """
     Calcule duration_min_go (hub_départ→hub_entrée + hub_entrée→stop) pour chaque stop
-    et normalise entre 0 et 1.
+    et normalise entre 0 et 1 (0 = le plus rapide).
+
+    La normalisation ne porte que sur les durées connues ; un arrêt de durée inconnue
+    vaut 1 (le moins bon). Inclure la sentinelle dans le min-max écraserait toutes
+    les durées connues près de 0 dès qu'un seul arrêt est inconnu.
     """
     duration_values = []
     for stop_id, stop_info in (stops_data or {}).items():
         props = stop_info.setdefault("properties", {})
-        hub_entree_id = props.get("hub_entree")
+        # Arrets_2_calcul_aller.py écrivait la clé au pluriel : les fichiers générés
+        # avant sa correction la portent encore.
+        hub_entree_id = props.get("hub_entree") or props.get("hubs_entree")
 
-        dur_hub_to_hub_entree = 10000.0
+        dur_hub_to_hub_entree = UNKNOWN_DURATION_MIN
         matched = None
         for hf in hubs_entree_features:
             hid = hf.get("properties", {}).get("id") or hf.get("properties", {}).get("nom")
@@ -81,20 +92,24 @@ def _compute_and_normalize_durations(stops_data, hubs_entree_features, departure
         if matched:
             dur_map = matched.get("properties", {}).get("durations_from_hubs", {})
             if departure_hub_name and isinstance(dur_map, dict):
-                dur_hub_to_hub_entree = float(dur_map.get(departure_hub_name, 10000))
+                dur_hub_to_hub_entree = float(dur_map.get(departure_hub_name, UNKNOWN_DURATION_MIN))
 
         if "duration" in props and props.get("duration") is not None:
             dur_hub_entree_to_stop = float(props["duration"])
         elif "duration_min_go" in props and props.get("duration_min_go") is not None:
             dur_hub_entree_to_stop = float(props["duration_min_go"])
         else:
-            dur_hub_entree_to_stop = 10000.0
+            dur_hub_entree_to_stop = UNKNOWN_DURATION_MIN
 
         total_min = dur_hub_to_hub_entree + dur_hub_entree_to_stop
         props["duration_min_go"] = total_min
-        duration_values.append(total_min)
+        if total_min < UNKNOWN_DURATION_MIN:
+            duration_values.append(total_min)
 
     if not duration_values:
+        # Aucune durée connue : le critère ne départage personne
+        for stop_info in (stops_data or {}).values():
+            stop_info.setdefault("properties", {})["duration_min_go_normalized"] = 0.0
         return stops_data
 
     minv = min(duration_values)
@@ -102,7 +117,7 @@ def _compute_and_normalize_durations(stops_data, hubs_entree_features, departure
     for stop_id, stop_info in (stops_data or {}).items():
         props = stop_info.setdefault("properties", {})
         val = props.get("duration_min_go")
-        if val is None:
+        if val is None or val >= UNKNOWN_DURATION_MIN:
             props["duration_min_go_normalized"] = 1.0
         elif maxv == minv:
             props["duration_min_go_normalized"] = 0.0

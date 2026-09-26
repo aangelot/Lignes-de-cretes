@@ -17,11 +17,8 @@ from hello.routing.domain.transit_go import (
     coords_from_station_label,
     _find_nearest_hub,
     _compute_and_normalize_durations,
+    UNKNOWN_DURATION_MIN,
 )
-
-# Au-delà, la durée précalculée est une valeur sentinelle (hub injoignable) :
-# on ne sait pas estimer le trajet.
-UNKNOWN_DURATION_MIN = 10000
 
 
 def _output_path(massif, suffix):
@@ -32,18 +29,6 @@ def load_stops(massif):
     """Arrêts du massif, sans charger le graphe de randonnée (trop lourd ici)."""
     with open(_output_path(massif, "arrets_stop_node_mapping.json"), "r", encoding="utf-8") as fh:
         return json.load(fh)
-
-
-def _normalize_hub_key(stops_data):
-    """
-    Arrets_2_calcul_aller.py écrit la clé `hubs_entree` alors que le calcul de durée
-    lit `hub_entree` : selon la date de génération des fichiers, on trouve l'une ou
-    l'autre. Sans cette harmonisation, aucune durée n'est estimable.
-    """
-    for info in stops_data.values():
-        props = info.setdefault("properties", {})
-        if not props.get("hub_entree") and props.get("hubs_entree"):
-            props["hub_entree"] = props["hubs_entree"]
 
 
 def _load_hubs_entree(massif):
@@ -79,7 +64,6 @@ def get_stops_with_durations(massif, address):
     hubs_entree = _load_hubs_entree(massif)
     departure_hub = _find_nearest_hub(address_coords, _load_hubs_departs() + hubs_entree)
 
-    _normalize_hub_key(stops_data)
     _compute_and_normalize_durations(stops_data, hubs_entree, departure_hub)
 
     stops = []

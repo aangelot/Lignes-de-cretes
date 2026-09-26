@@ -114,7 +114,8 @@ def process_scores(massif: str):
         results.append({
             "duration": duration_min,
             "geometry": Point(lon, lat),
-            "hubs_entree": id_origin
+            # Clé lue par transit_go._compute_and_normalize_durations
+            "hub_entree": id_origin
         })
         time.sleep(0.1)  # limiter les requêtes
 
