@@ -4,8 +4,8 @@ dans l'ordre des clics de l'utilisateur → arrêt retour (une fois le tracé te
 
 Chaque tronçon est le plus court chemin dans le graphe, en pénalisant les arêtes
 déjà empruntées (même règle que le mode POI automatique, cf. route_poi._chain_pois).
-On utilise A* plutôt que Dijkstra : même résultat, 2 à 4 fois plus rapide ici,
-l'heuristique (distance à vol d'oiseau) ne surestimant jamais une longueur d'arête.
+On utilise A* plutôt que Dijkstra (geotools.astar_shortest_path) : même résultat,
+2 à 4 fois plus rapide sur les tronçons courts d'un tracé construit au clic.
 
 Les préfixes déjà calculés sont mémorisés : ajouter un point ne calcule que le
 nouveau tronçon.
@@ -17,12 +17,12 @@ import os
 from collections import OrderedDict
 
 from django.conf import settings
-from networkx import astar_path, NetworkXNoPath, NodeNotFound
+from networkx import NetworkXNoPath, NodeNotFound
 
 from hello.constants import REUSE_PENALTY_MULTIPLIER
 from hello.data_preparation.utils import slugify
 from hello.routing.domain.elevation import get_elevations, smooth_elevations, compute_total_ascent
-from hello.routing.utils.geotools import haversine, get_path_length
+from hello.routing.utils.geotools import astar_shortest_path, get_path_length
 from .graph_cache import get_massif_graph
 from .stops import load_stops
 
@@ -60,11 +60,6 @@ def load_pois(massif):
     return pois
 
 
-def _node_distance(u, v):
-    """Distance à vol d'oiseau entre deux nœuds (lon, lat) : heuristique A*."""
-    return haversine((u[1], u[0]), (v[1], v[0]))
-
-
 # (slug, stop_id, (clé de cible, ...)) -> {"nodes": [...], "traversed": set d'arêtes}
 # Une cible est un POI (clé : son identifiant) ou l'arrêt retour (clé : "stop:<id>").
 _prefix_cache = OrderedDict()
@@ -98,10 +93,7 @@ def _chain(massif_graph, slug, stop_id, start_node, target_nodes, target_keys):
 
     source, target = previous["nodes"][-1], target_nodes[-1]
     try:
-        segment = astar_path(
-            massif_graph.G, source, target,
-            heuristic=_node_distance, weight=penalized_weight,
-        )
+        segment = astar_shortest_path(massif_graph.G, source, target, weight=penalized_weight)
     except (NetworkXNoPath, NodeNotFound):
         raise UnreachablePoint(
             "Ce point n'est pas relié au tracé par le réseau de sentiers."

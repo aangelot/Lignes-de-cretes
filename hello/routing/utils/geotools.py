@@ -7,6 +7,7 @@ import logging
 import math
 import random
 import requests
+from networkx import astar_path
 from shapely.geometry import LineString
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,32 @@ def haversine(coord1, coord2):
     dlat, dlon = lat2 - lat1, lon2 - lon1
     a = math.sin(dlat / 2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2)**2
     return 2 * R * math.asin(math.sqrt(a))
+
+
+# A* doit minorer la longueur de tout chemin restant. Les arêtes sont mesurées sur
+# l'ellipsoïde WGS84 (Graphe_2_fichiers_finaux.py), alors qu'haversine suppose une
+# sphère : sur les 16 massifs, haversine dépasse la longueur d'une arête de 0,075 %
+# au plus (Mercantour). La marge de 0,2 % garantit l'admissibilité, donc le même
+# plus court chemin que Dijkstra, pour un coût de recherche identique.
+ASTAR_HEURISTIC_FACTOR = 0.998
+
+
+def _astar_heuristic(u, v):
+    """Distance à vol d'oiseau minorée entre deux nœuds (lon, lat)."""
+    return ASTAR_HEURISTIC_FACTOR * haversine((u[1], u[0]), (v[1], v[0]))
+
+
+def astar_shortest_path(G, source, target, weight="length"):
+    """
+    Plus court chemin entre deux nœuds, comme networkx.shortest_path, mais par A*.
+
+    L'heuristique oriente la recherche vers la cible au lieu d'explorer le graphe
+    en cercles concentriques. `weight` peut être un nom d'attribut ou une fonction
+    (u, v, data) ; les pénalités de réutilisation ne font qu'allonger les arêtes,
+    l'heuristique reste donc admissible. Lève NetworkXNoPath / NodeNotFound
+    comme shortest_path.
+    """
+    return astar_path(G, source, target, heuristic=_astar_heuristic, weight=weight)
 
 
 def find_nearest_node(G, coord):

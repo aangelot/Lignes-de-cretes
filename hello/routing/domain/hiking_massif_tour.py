@@ -3,11 +3,11 @@ Algorithme de tour de massif : progression sectorielle autour du centre du massi
 """
 import logging
 
-from networkx import NetworkXNoPath, shortest_path
+from networkx import NetworkXNoPath
 
 logger = logging.getLogger(__name__)
 
-from ..utils.geotools import find_nearest_node, save_original_weights, restore_original_weights, get_path_length, determine_rotation_direction
+from ..utils.geotools import find_nearest_node, astar_shortest_path, save_original_weights, restore_original_weights, get_path_length, determine_rotation_direction
 from ..utils.poi_tools import get_massif_center, find_poi_candidates, select_best_poi
 from hello.constants import REUSE_PENALTY_MULTIPLIER
 
@@ -42,7 +42,7 @@ def _run_tour_loop(G, start_coord, poi_data, massif_center, rotation_dir,
         best = select_best_poi(candidates, randomness)
         poi_node = find_nearest_node(G, best["coord"][::-1])
 
-        segment = shortest_path(G, current_node, poi_node, weight="length")
+        segment = astar_shortest_path(G, current_node, poi_node, weight="length")
         seg_len = get_path_length(G, segment)
         if seg_len > remaining:
             logger.info(f"POI trop loin ({seg_len/1000:.1f} km > {remaining/1000:.1f} km restants)")

@@ -10,11 +10,11 @@ import random
 logger = logging.getLogger(__name__)
 
 from shapely.geometry import LineString, Point
-from networkx import NetworkXNoPath, shortest_path
+from networkx import NetworkXNoPath
 from django.conf import settings
 from hello.data_preparation.utils import slugify
 from hello.constants import REUSE_PENALTY_MULTIPLIER
-from .geotools import haversine, find_nearest_node, save_original_weights, restore_original_weights, get_path_length, angle_in_sector
+from .geotools import haversine, find_nearest_node, astar_shortest_path, save_original_weights, restore_original_weights, get_path_length, angle_in_sector
 
 
 def get_massif_center(massif_name="Chartreuse"):
@@ -140,7 +140,7 @@ def _greedy_poi_selection(G, start_node, pois_by_projection, max_distance_m, ori
     for poi in pois_by_projection:
         poi_node = find_nearest_node(G, poi["coord"][::-1])
         try:
-            segment = shortest_path(G, current_node, poi_node, weight="length")
+            segment = astar_shortest_path(G, current_node, poi_node, weight="length")
             seg_len = get_path_length(G, segment)
             if seg_len > remaining:
                 continue
@@ -167,7 +167,7 @@ def _finalize_path_to_end(G, selected, partial_path, start_node, end_node, remai
     if not selected:
         return [], []
     try:
-        final_seg = shortest_path(G, partial_path[-1], end_node, weight="length")
+        final_seg = astar_shortest_path(G, partial_path[-1], end_node, weight="length")
         if get_path_length(G, final_seg) <= remaining:
             return selected, partial_path + final_seg[1:]
 
@@ -177,9 +177,9 @@ def _finalize_path_to_end(G, selected, partial_path, start_node, end_node, remai
             partial_path = [start_node]
             for p in selected:
                 poi_node = find_nearest_node(G, p["coord"][::-1])
-                seg = shortest_path(G, partial_path[-1], poi_node, weight="length")
+                seg = astar_shortest_path(G, partial_path[-1], poi_node, weight="length")
                 partial_path.extend(seg[1:])
-            final_seg = shortest_path(G, partial_path[-1], end_node, weight="length")
+            final_seg = astar_shortest_path(G, partial_path[-1], end_node, weight="length")
             return selected, partial_path + final_seg[1:]
         return [], []
     except NetworkXNoPath:
@@ -194,7 +194,7 @@ def build_optimal_poi_path(start_coord, end_coord, all_pois, max_distance_m, G):
     end_node = find_nearest_node(G, end_coord[::-1])
 
     try:
-        shortest_path(G, start_node, end_node, weight="length")
+        astar_shortest_path(G, start_node, end_node, weight="length")
     except NetworkXNoPath:
         return [], []
 

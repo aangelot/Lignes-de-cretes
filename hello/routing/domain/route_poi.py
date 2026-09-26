@@ -3,11 +3,9 @@ Mode POI : itinéraire contraint par des points d'intérêt choisis par l'utilis
 """
 import logging
 
-from networkx import shortest_path
-
 logger = logging.getLogger(__name__)
 
-from ..utils.geotools import find_nearest_node, haversine, get_path_coordinates, get_path_length
+from ..utils.geotools import find_nearest_node, haversine, get_path_coordinates, get_path_length, astar_shortest_path
 from .transit_go import get_best_transit_route
 from .transit_back import choose_return_stop, compute_return_transit
 from .route_init import initialize_route_parameters
@@ -27,7 +25,7 @@ def _chain_pois(G, pois):
     path_nodes = [pois[0]["node"]]
     for poi in pois[1:]:
         try:
-            segment = shortest_path(G, path_nodes[-1], poi["node"], weight=penalized_weight)
+            segment = astar_shortest_path(G, path_nodes[-1], poi["node"], weight=penalized_weight)
             for j in range(len(segment) - 1):
                 traversed_edges.add((segment[j], segment[j + 1]))
                 traversed_edges.add((segment[j + 1], segment[j]))
@@ -115,7 +113,7 @@ def _build_final_path(G, transit_arrival_lat, transit_arrival_lon, pois,
 
     departure_node = find_nearest_node(G, (transit_arrival_lat, transit_arrival_lon))
     try:
-        walk_to_first = shortest_path(G, departure_node, pois[0]["node"], weight=penalized_weight)
+        walk_to_first = astar_shortest_path(G, departure_node, pois[0]["node"], weight=penalized_weight)
         for j in range(len(walk_to_first) - 1):
             traversed_edges.add((walk_to_first[j], walk_to_first[j + 1]))
         for n in walk_to_first[:-1]:
@@ -129,7 +127,7 @@ def _build_final_path(G, transit_arrival_lat, transit_arrival_lon, pois,
 
     return_node = find_nearest_node(G, (return_stop_info["node"][1], return_stop_info["node"][0]))
     try:
-        walk_from_last = shortest_path(G, pois[-1]["node"], return_node, weight=penalized_weight)
+        walk_from_last = astar_shortest_path(G, pois[-1]["node"], return_node, weight=penalized_weight)
         for n in walk_from_last[1:]:
             lon, lat = node_coords(n)
             if lon is not None:

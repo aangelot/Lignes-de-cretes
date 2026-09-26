@@ -3,10 +3,10 @@ Mode massif_tour : boucle autour du massif, arrêt retour trouvé depuis le poin
 """
 import logging
 
-from networkx import NetworkXNoPath, shortest_path
+from networkx import NetworkXNoPath
 
 logger = logging.getLogger(__name__)
-from ..utils.geotools import find_nearest_node
+from ..utils.geotools import find_nearest_node, astar_shortest_path
 from .transit_back import choose_return_stop, compute_return_transit
 from .hiking_massif_tour import best_hiking_massif_tour
 from .progress import update_status
@@ -36,7 +36,7 @@ def _extend_to_stop(G, hike_path, hike_distance, final_coord, selected_candidate
     try:
         start_node = find_nearest_node(G, final_coord[::-1])
         end_node = find_nearest_node(G, selected_candidate["stop_info"]["node"][::-1])
-        path_to_stop = shortest_path(G, start_node, end_node, weight="length")
+        path_to_stop = astar_shortest_path(G, start_node, end_node, weight="length")
         distance_to_stop = sum(
             G[path_to_stop[i]][path_to_stop[i + 1]]["length"]
             for i in range(len(path_to_stop) - 1)

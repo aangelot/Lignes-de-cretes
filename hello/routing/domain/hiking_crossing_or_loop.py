@@ -3,12 +3,12 @@ Algorithmes de traversée (départ → arrivée) et de boucle (départ = arrivé
 """
 import logging
 
-from networkx import NetworkXNoPath, shortest_path
+from networkx import NetworkXNoPath
 
 logger = logging.getLogger(__name__)
 
 from ..utils.geotools import (
-    find_nearest_node,
+    find_nearest_node, astar_shortest_path,
     save_original_weights, restore_original_weights,
     get_path_length, get_path_coordinates, penalize_path_edges,
 )
@@ -23,7 +23,7 @@ def _direct_path_fallback(start_coord, end_coord, G):
     start_node = find_nearest_node(G, start_coord[::-1])
     end_node = find_nearest_node(G, end_coord[::-1])
     try:
-        path = shortest_path(G, start_node, end_node, weight="length")
+        path = astar_shortest_path(G, start_node, end_node, weight="length")
         length = get_path_length(G, path)
         logger.info(f"Trajet direct : {length/1000:.1f} km")
         return path, length
@@ -48,8 +48,8 @@ def best_hiking_crossing(start_coord, end_coord, max_distance_m, G, poi_data, ra
         poi_node = find_nearest_node(G, all_pois[0]["coord"][::-1])
         end_node = find_nearest_node(G, end_coord[::-1])
         try:
-            path_to_poi = shortest_path(G, start_node, poi_node, weight="length")
-            path_from_poi = shortest_path(G, poi_node, end_node, weight="length")
+            path_to_poi = astar_shortest_path(G, start_node, poi_node, weight="length")
+            path_from_poi = astar_shortest_path(G, poi_node, end_node, weight="length")
             final_path = path_to_poi + path_from_poi[1:]
             selected_pois = [all_pois[0]]
         except Exception:
